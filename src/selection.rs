@@ -21,8 +21,11 @@ pub fn choose(
                     .skip(history.len() - recent)
                     .any(|i| i == name)
                 {
+                    // Exclude recently selected participants
                     0.0
                 } else {
+                    // Beta distribution will lean toward zero weight
+                    // the more a participant has been previously selected.
                     let dist = Beta::new(1_f64, (1 + n_past) as f64).unwrap();
                     dist.sample(rng)
                 }
@@ -30,6 +33,7 @@ pub fn choose(
             .collect()
     };
     if let Some(v) = verbosity {
+        // Print out all the weights when user specifies verbosity > 0
         if v > 0 {
             let info = weights
                 .iter()
