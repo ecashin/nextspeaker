@@ -16,6 +16,9 @@ struct Args {
 
     #[arg(long)]
     history: Option<PathBuf>,
+
+    #[arg(long)]
+    verbosity: Option<usize>,
 }
 
 fn non_blanks(path: &Path) -> Result<Vec<String>> {
@@ -40,7 +43,8 @@ fn main() -> Result<()> {
     if participants.is_empty() {
         Err(anyhow!("participant list is empty"))
     } else {
-        let selection = choose(&participants, &history).context("choosing participant")?;
+        let selection =
+            choose(&participants, &history, args.verbosity).context("choosing participant")?;
         println!("{selection}");
         Ok(())
     }

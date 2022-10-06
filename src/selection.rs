@@ -2,7 +2,11 @@ use anyhow::{anyhow, Context, Result};
 use rand::distributions::WeightedIndex;
 use rand_distr::{Beta, Distribution};
 
-pub fn choose(participants: &[String], history: &[String]) -> Result<String> {
+pub fn choose(
+    participants: &[String],
+    history: &[String],
+    verbosity: Option<usize>,
+) -> Result<String> {
     let rng = &mut rand::thread_rng();
     let weights = if history.is_empty() {
         vec![1.0; participants.len()]
@@ -25,6 +29,16 @@ pub fn choose(participants: &[String], history: &[String]) -> Result<String> {
             })
             .collect()
     };
+    if let Some(v) = verbosity {
+        if v > 0 {
+            let info = weights
+                .iter()
+                .zip(participants.iter())
+                .map(|(w, name)| format!("{name}:{w:.2}"))
+                .collect::<Vec<_>>();
+            println!("{info:?}");
+        }
+    }
     let dist = WeightedIndex::new(&weights).context("creating weighted index")?;
     Ok(participants
         .get(dist.sample(rng))

@@ -45,7 +45,9 @@ We review the usage.
 
     Options:
         --history <HISTORY>
-    -h, --help               Print help information
+        --verbosity <VERBOSITY>
+    -h, --help                   Print help information
+    bash$
 
 The next speaker is selected.
 
