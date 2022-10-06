@@ -12,7 +12,6 @@ mod selection;
 
 #[derive(Parser, Debug)]
 struct Args {
-    #[arg(long)]
     participants: PathBuf,
 
     #[arg(long)]

@@ -33,12 +33,26 @@ There are two text files.
     Earnie
     Estelle
 
+We review the usage.
+
+    bash$ cargo run -- --help
+        Finished dev [unoptimized + debuginfo] target(s) in 0.02s
+        Running `target/debug/nextspeaker --help`
+    Usage: nextspeaker [OPTIONS] <PARTICIPANTS>
+
+    Arguments:
+    <PARTICIPANTS>
+
+    Options:
+        --history <HISTORY>
+    -h, --help               Print help information
+
 The next speaker is selected.
 
-    bash$ cargo run -- \
-        --participants participants.txt \
-        --history history.txt
-    Abram
+    bash$ cargo run -- participants.txt --history history.txt
+        Finished dev [unoptimized + debuginfo] target(s) in 0.02s
+        Running `target/debug/nextspeaker participants.txt --history history.txt`
+    Alice
     bash$ 
 
 We record the selection in the history.

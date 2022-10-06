@@ -15,12 +15,11 @@ pub fn choose(participants: &[String], history: &[String]) -> Result<String> {
                 if history
                     .iter()
                     .skip(history.len() - recent)
-                    .find(|i| *i == name)
-                    .is_some()
+                    .any(|i| i == name)
                 {
                     0.0
                 } else {
-                    let dist = Beta::new((1 + n_past) as f64, 1 as f64).unwrap();
+                    let dist = Beta::new((1 + n_past) as f64, 1_f64).unwrap();
                     dist.sample(rng)
                 }
             })
