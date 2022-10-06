@@ -23,7 +23,7 @@ pub fn choose(
                 {
                     0.0
                 } else {
-                    let dist = Beta::new((1 + n_past) as f64, 1_f64).unwrap();
+                    let dist = Beta::new(1_f64, (1 + n_past) as f64).unwrap();
                     dist.sample(rng)
                 }
             })
