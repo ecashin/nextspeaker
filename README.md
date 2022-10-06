@@ -59,7 +59,7 @@ The next speaker is selected.
 
 We record the selection in the history.
 
-    bash$ echo Abram >> history.txt
+    bash$ echo Alice >> history.txt
 
 ## History
 
