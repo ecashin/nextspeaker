@@ -9,6 +9,13 @@ selecting a speaker from a list of participants.
 * Avoid choosing too-recently chosen speakers
 * Avoid neglecting to choose participants for too long
 
+## Building
+
+To compile and use this [Rust](https://www.rust-lang.org/) software,
+you can install [rustup](https://www.rust-lang.org/tools/install)
+and use `cargo` as desired,
+e.g., as shown below.
+
 ## Usage
 
 Create two text files.
