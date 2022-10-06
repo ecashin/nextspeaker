@@ -60,3 +60,8 @@ The next speaker is selected.
 We record the selection in the history.
 
     bash$ echo Abram >> history.txt
+
+## History
+
+The algorithm here is based
+on [the memoradical flashcards app](https://github.com/ecashin/memoradical).
