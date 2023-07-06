@@ -43,42 +43,35 @@ pub fn choose(participants: &[String], history: &[String], args: &Args) -> Resul
                     .sum::<f64>()
             })
             .collect();
-        let weights: Vec<_> = participants
+        let mut recent_participants = vec![];
+        let mut weights: Vec<_> = participants
             .iter()
+            .zip(history_weights.iter())
             .enumerate()
-            .map(|(i, name)| {
-                let weight_past = history_weights[i];
+            .map(|(i, (name, &weight_past))| {
                 if history
                     .iter()
                     .skip(history.len() - recent)
-                    .any(|i| i == name)
+                    .any(|p| p == name)
                 {
-                    // Exclude recently selected participants
-                    0.0
-                } else {
-                    // Beta distribution will lean toward zero weight
-                    // the more a participant has been previously selected.
-                    let dist = Beta::new(1_f64, 1_f64 + weight_past).unwrap();
-                    dist.sample(rng)
+                    recent_participants.push(i);
                 }
+                // Beta distribution will lean toward zero weight
+                // the more a participant has been previously selected.
+                if verbose {
+                    println!("{name} history weight: {weight_past}");
+                }
+                let dist = Beta::new(1_f64, 1_f64 + weight_past).unwrap();
+                dist.sample(rng)
             })
             .collect();
-        // sample based on history if *everyone* was recent
-        if weights.iter().sum::<f64>() == 0.0 {
-            history_weights
-                .iter()
-                .enumerate()
-                .map(|(i, w)| {
-                    let dist = Beta::new(1_f64, 1_f64 + w).unwrap();
-                    if verbose {
-                        println!("{}: {:?}", participants[i], dist);
-                    }
-                    dist.sample(rng)
-                })
-                .collect()
-        } else {
-            weights
+        // Exclude recently selected participants unless everyone's recent
+        if recent_participants.len() < participants.len() {
+            for i in recent_participants {
+                weights[i] = 0.0;
+            }
         }
+        weights
     };
     if verbose {
         // Print out all the weights when user specifies verbosity > 0
