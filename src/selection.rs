@@ -9,23 +9,26 @@ fn exponentially_weighted_decay(half_life: f64, time: f64) -> f64 {
 }
 
 pub fn choose(participants: &[String], history: &[String], args: &Args) -> Result<String> {
+    let verbose = args.verbosity.is_some_and(|x| x > 0);
     let rng = &mut rand::thread_rng();
     let weights = if history.is_empty() {
         vec![1.0; participants.len()]
     } else {
-        let recent = (history.len() as f64).log(2.0) as usize;
         let decay = history
             .iter()
+            .rev()
             .enumerate()
             .map(|(i, _)| {
                 let t = i as f64;
                 exponentially_weighted_decay(args.history_halflife, t)
             })
+            .rev()
             .collect::<Vec<_>>();
-        participants
+        let recent = (history.len() as f64).log(2.0) as usize;
+        let history_weights: Vec<_> = participants
             .iter()
             .map(|name| {
-                let weight_past = history
+                history
                     .iter()
                     .enumerate()
                     .filter_map(
@@ -37,7 +40,14 @@ pub fn choose(participants: &[String], history: &[String], args: &Args) -> Resul
                             }
                         },
                     )
-                    .sum::<f64>();
+                    .sum::<f64>()
+            })
+            .collect();
+        let weights: Vec<_> = participants
+            .iter()
+            .enumerate()
+            .map(|(i, name)| {
+                let weight_past = history_weights[i];
                 if history
                     .iter()
                     .skip(history.len() - recent)
@@ -52,18 +62,32 @@ pub fn choose(participants: &[String], history: &[String], args: &Args) -> Resul
                     dist.sample(rng)
                 }
             })
-            .collect()
-    };
-    if let Some(v) = args.verbosity {
-        // Print out all the weights when user specifies verbosity > 0
-        if v > 0 {
-            let info = weights
+            .collect();
+        // sample based on history if *everyone* was recent
+        if weights.iter().sum::<f64>() == 0.0 {
+            history_weights
                 .iter()
-                .zip(participants.iter())
-                .map(|(w, name)| format!("{name}:{w:.2}"))
-                .collect::<Vec<_>>();
-            println!("{info:?}");
+                .enumerate()
+                .map(|(i, w)| {
+                    let dist = Beta::new(1_f64, 1_f64 + w).unwrap();
+                    if verbose {
+                        println!("{}: {:?}", participants[i], dist);
+                    }
+                    dist.sample(rng)
+                })
+                .collect()
+        } else {
+            weights
         }
+    };
+    if verbose {
+        // Print out all the weights when user specifies verbosity > 0
+        let info = weights
+            .iter()
+            .zip(participants.iter())
+            .map(|(w, name)| format!("{name}:{w:.2}"))
+            .collect::<Vec<_>>();
+        println!("{info:?}");
     }
     let dist = WeightedIndex::new(&weights).context("creating weighted index")?;
     Ok(participants
