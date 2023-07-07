@@ -9,7 +9,7 @@ fn exponentially_weighted_decay(half_life: f64, time: f64) -> f64 {
 }
 
 pub fn choose(participants: &[String], history: &[String], args: &Args) -> Result<String> {
-    let verbose = args.verbosity.is_some_and(|x| x > 0);
+    let verbose = args.verbosity.is_some() && args.verbosity.unwrap() > 0;
     let rng = &mut rand::thread_rng();
     let weights = if history.is_empty() {
         vec![1.0; participants.len()]
