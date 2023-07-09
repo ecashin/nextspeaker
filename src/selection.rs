@@ -17,7 +17,6 @@ fn n_recent_for_history_and_participants(n_history: usize, n_participants: usize
 
 pub fn choose(participants: &[String], history: &[String], args: &Args) -> Result<String> {
     debug!("history:{history:?}");
-    let verbose = args.verbosity.is_some() && args.verbosity.unwrap() > 0;
     let rng = &mut rand::thread_rng();
     let weights = if history.is_empty() {
         vec![1.0; participants.len()]
@@ -66,16 +65,12 @@ pub fn choose(participants: &[String], history: &[String], args: &Args) -> Resul
                 }
                 // Beta distribution will lean toward zero weight
                 // the more a participant has been previously selected.
-                if verbose {
-                    debug!("participant:{name} history weight:{weight_past}");
-                }
+                debug!("participant:{name} history weight:{weight_past}");
                 let dist = Beta::new(1_f64, 1_f64 + weight_past).unwrap();
                 dist.sample(rng)
             })
             .collect();
-        if verbose {
-            info!("recent participants:{recent_participants:?}");
-        }
+        info!("recent participants:{recent_participants:?}");
         // Exclude recently selected participants unless everyone's recent
         if recent_participants.len() < participants.len() {
             for i in recent_participants {
@@ -84,15 +79,12 @@ pub fn choose(participants: &[String], history: &[String], args: &Args) -> Resul
         }
         weights
     };
-    if verbose {
-        // Print out all the weights when user specifies verbosity > 0
-        let info = weights
-            .iter()
-            .zip(participants.iter())
-            .map(|(w, name)| format!("{name}:{w:.2}"))
-            .collect::<Vec<_>>();
-        info!("participant selection weights:{info:?}");
-    }
+    let weight_info = weights
+        .iter()
+        .zip(participants.iter())
+        .map(|(w, name)| format!("{name}:{w:.2}"))
+        .collect::<Vec<_>>();
+    info!("participant selection weights:{weight_info:?}");
     let dist = WeightedIndex::new(&weights).context("creating weighted index")?;
     Ok(participants
         .get(dist.sample(rng))
@@ -102,7 +94,7 @@ pub fn choose(participants: &[String], history: &[String], args: &Args) -> Resul
 
 #[cfg(test)]
 mod test {
-    use std::{collections::HashMap, path::PathBuf};
+    use std::collections::HashMap;
 
     use log::debug;
     use rand::thread_rng;
@@ -242,12 +234,7 @@ mod test {
             let selection = choose(
                 &s.participants,
                 &s.history,
-                &Args {
-                    participants: PathBuf::from("dummy"),
-                    history: Some(PathBuf::from("dummy-history")),
-                    history_halflife: halflife_vals[0],
-                    verbosity: Some(2),
-                },
+                &Args::dummy_with_halflife(halflife_vals[0]),
             )?;
             *selected[0].entry(selection).or_insert(0_usize) += 1;
 
@@ -255,12 +242,7 @@ mod test {
             let selection = choose(
                 &s.participants,
                 &s.history,
-                &Args {
-                    participants: PathBuf::from("dummy"),
-                    history: Some(PathBuf::from("dummy-history")),
-                    history_halflife: halflife_vals[1],
-                    verbosity: Some(2),
-                },
+                &Args::dummy_with_halflife(halflife_vals[1]),
             )?;
             *selected[1].entry(selection).or_insert(0_usize) += 1;
         }
@@ -280,12 +262,7 @@ mod test {
 
     #[test]
     fn test_recent() -> Result<()> {
-        let args = &Args {
-            participants: PathBuf::from("dummy"),
-            history: Some(PathBuf::from("dummy-history")),
-            history_halflife: 10.0,
-            verbosity: Some(2),
-        };
+        let args = &Args::dummy();
         let participants = "abcdefghijklmnopqrstuvwxyz"
             .chars()
             .map(|c| c.to_string())

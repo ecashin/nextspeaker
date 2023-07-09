@@ -21,8 +21,6 @@ pub struct Args {
     history_halflife: f64,
     #[arg(long)]
     n_simulations: Option<usize>,
-    #[arg(long)]
-    verbosity: Option<usize>,
 }
 
 fn non_blanks(path: &Path) -> Result<Vec<String>> {
@@ -76,4 +74,25 @@ fn main() -> Result<()> {
         info!("selection:{selection}");
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    impl Args {
+        pub fn dummy() -> Self {
+            Self {
+                participants: PathBuf::from("dummy"),
+                history: Some(PathBuf::from("dummy-history")),
+                history_halflife: 10.0,
+                n_simulations: None,
+            }
+        }
+        pub fn dummy_with_halflife(halflife: f64) -> Self {
+            let mut args = Self::dummy();
+            args.history_halflife = halflife;
+            args
+        }
+    }
 }

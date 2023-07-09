@@ -55,7 +55,6 @@ We review the usage.
     Options:
           --history <HISTORY>
           --history-halflife <HISTORY_HALFLIFE>  [default: 10]
-          --verbosity <VERBOSITY>
       -h, --help                                 Print help information
     bash$
 
@@ -211,4 +210,14 @@ when using the default half life.
        Gabriel: 0
          Gayle: 0
     bash$
+
+## Logging
+
+To gain insight into how NEXSPEAKER is working,
+you can examine the source code and run
+with the `RUST_LOG` environment variable
+set to `info` or even `debug`.
+
+This environment variable controls the verbosity
+of the logging output.
 
