@@ -8,7 +8,8 @@ selecting a speaker from a list of participants.
 * Be unpredictable
 * Avoid choosing too-recently chosen speakers
 * Avoid neglecting to choose participants for too long
-* Avoid aggressively focusing on newbies to the participant group
+* Avoid aggressively focusing on new members of the participant group
+* Avoid administrative work (like recording when members join, etc.)
 
 ## Building
 
