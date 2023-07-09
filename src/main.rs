@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     fs,
     path::{Path, PathBuf},
 };
@@ -18,6 +19,8 @@ pub struct Args {
     history: Option<PathBuf>,
     #[arg(long, default_value_t = 10.0)]
     history_halflife: f64,
+    #[arg(long)]
+    n_simulations: Option<usize>,
     #[arg(long)]
     verbosity: Option<usize>,
 }
@@ -42,10 +45,35 @@ fn main() -> Result<()> {
         vec![]
     };
     if participants.is_empty() {
-        Err(anyhow!("participant list is empty"))
+        return Err(anyhow!("participant list is empty"));
+    }
+    if let Some(n_simulations) = args.n_simulations {
+        let mut counts: HashMap<_, _> = HashMap::new();
+        for _ in 0..n_simulations {
+            let selection =
+                choose(&participants, &history, &args).context("choosing participant")?;
+            counts
+                .entry(selection)
+                .and_modify(|count| *count += 1)
+                .or_insert(1);
+        }
+        let plen = participants
+            .iter()
+            .map(|p| p.chars().map(|_| 1).sum::<usize>())
+            .max()
+            .ok_or_else(|| anyhow!("cannot get maximum-length participant name"))?;
+        for p in participants {
+            let count = counts.get(&p);
+            println!(
+                "{:>width$}: {}",
+                p,
+                if let Some(n) = count { *n } else { 0 },
+                width = plen + 1
+            );
+        }
     } else {
         let selection = choose(&participants, &history, &args).context("choosing participant")?;
         info!("selection:{selection}");
-        Ok(())
     }
+    Ok(())
 }
