@@ -5,6 +5,7 @@ use std::{
 
 use anyhow::{anyhow, Context, Result};
 use clap::Parser;
+use log::info;
 
 use selection::choose;
 
@@ -31,6 +32,7 @@ fn non_blanks(path: &Path) -> Result<Vec<String>> {
 }
 
 fn main() -> Result<()> {
+    simple_logger::init_with_env().context("initializing logger")?;
     let args = Args::parse();
 
     let participants = non_blanks(&args.participants)?;
@@ -43,7 +45,7 @@ fn main() -> Result<()> {
         Err(anyhow!("participant list is empty"))
     } else {
         let selection = choose(&participants, &history, &args).context("choosing participant")?;
-        println!("{selection}");
+        info!("selection:{selection}");
         Ok(())
     }
 }
