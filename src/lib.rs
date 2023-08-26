@@ -26,7 +26,11 @@ fn n_recent_for_history_and_participants(n_history: usize, n_participants: usize
     min(recent, n_participants / 2)
 }
 
-pub fn choose(participants: &[String], history: &[String], args: &Args) -> Result<String> {
+pub fn choose(
+    participants: &[String],
+    history: &[String],
+    history_halflife: f64,
+) -> Result<String> {
     debug!("history:{history:?}");
     let rng = &mut rand::thread_rng();
     let weights = if history.is_empty() {
@@ -38,7 +42,7 @@ pub fn choose(participants: &[String], history: &[String], args: &Args) -> Resul
             .enumerate()
             .map(|(i, _)| {
                 let t = i as f64;
-                exponentially_weighted_decay(args.history_halflife, t)
+                exponentially_weighted_decay(history_halflife, t)
             })
             .rev()
             .collect::<Vec<_>>();

@@ -31,8 +31,8 @@ fn main() -> Result<()> {
     if let Some(n_simulations) = args.n_simulations {
         let mut counts: HashMap<_, _> = HashMap::new();
         for _ in 0..n_simulations {
-            let selection =
-                choose(&participants, &history, &args).context("choosing participant")?;
+            let selection = choose(&participants, &history, args.history_halflife)
+                .context("choosing participant")?;
             counts
                 .entry(selection)
                 .and_modify(|count| *count += 1)
@@ -53,7 +53,8 @@ fn main() -> Result<()> {
             );
         }
     } else {
-        let selection = choose(&participants, &history, &args).context("choosing participant")?;
+        let selection = choose(&participants, &history, args.history_halflife)
+            .context("choosing participant")?;
         info!("selection:{selection}");
     }
     Ok(())
