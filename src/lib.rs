@@ -1,10 +1,21 @@
+use std::{cmp::min, path::PathBuf};
+
 use anyhow::{anyhow, Context, Result};
+use clap::Parser;
 use log::{debug, info};
 use rand::distributions::WeightedIndex;
 use rand_distr::{Beta, Distribution};
-use std::cmp::min;
 
-use crate::Args;
+#[derive(Parser, Debug)]
+pub struct Args {
+    pub participants: PathBuf,
+    #[arg(long)]
+    pub history: Option<PathBuf>,
+    #[arg(long, default_value_t = 10.0)]
+    pub history_halflife: f64,
+    #[arg(long)]
+    pub n_simulations: Option<usize>,
+}
 
 fn exponentially_weighted_decay(half_life: f64, time: f64) -> f64 {
     0.5_f64.powf(time / half_life)
@@ -275,5 +286,21 @@ mod test {
             }
         }
         Ok(())
+    }
+
+    impl Args {
+        pub fn dummy() -> Self {
+            Self {
+                participants: PathBuf::from("dummy"),
+                history: Some(PathBuf::from("dummy-history")),
+                history_halflife: 10.0,
+                n_simulations: None,
+            }
+        }
+        pub fn dummy_with_halflife(halflife: f64) -> Self {
+            let mut args = Self::dummy();
+            args.history_halflife = halflife;
+            args
+        }
     }
 }
