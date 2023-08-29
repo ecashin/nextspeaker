@@ -1,10 +1,21 @@
+use std::{cmp::min, path::PathBuf};
+
 use anyhow::{anyhow, Context, Result};
+use clap::Parser;
 use log::{debug, info};
 use rand::distributions::WeightedIndex;
 use rand_distr::{Beta, Distribution};
-use std::cmp::min;
 
-use crate::Args;
+#[derive(Parser, Debug)]
+pub struct Args {
+    pub participants: PathBuf,
+    #[arg(long)]
+    pub history: Option<PathBuf>,
+    #[arg(long, default_value_t = 10.0)]
+    pub history_halflife: f64,
+    #[arg(long)]
+    pub n_simulations: Option<usize>,
+}
 
 fn exponentially_weighted_decay(half_life: f64, time: f64) -> f64 {
     0.5_f64.powf(time / half_life)
@@ -15,7 +26,11 @@ fn n_recent_for_history_and_participants(n_history: usize, n_participants: usize
     min(recent, n_participants / 2)
 }
 
-pub fn choose(participants: &[String], history: &[String], args: &Args) -> Result<String> {
+pub fn choose(
+    participants: &[String],
+    history: &[String],
+    history_halflife: f64,
+) -> Result<String> {
     debug!("history:{history:?}");
     let rng = &mut rand::thread_rng();
     let weights = if history.is_empty() {
@@ -27,7 +42,7 @@ pub fn choose(participants: &[String], history: &[String], args: &Args) -> Resul
             .enumerate()
             .map(|(i, _)| {
                 let t = i as f64;
-                exponentially_weighted_decay(args.history_halflife, t)
+                exponentially_weighted_decay(history_halflife, t)
             })
             .rev()
             .collect::<Vec<_>>();
@@ -275,5 +290,21 @@ mod test {
             }
         }
         Ok(())
+    }
+
+    impl Args {
+        pub fn dummy() -> Self {
+            Self {
+                participants: PathBuf::from("dummy"),
+                history: Some(PathBuf::from("dummy-history")),
+                history_halflife: 10.0,
+                n_simulations: None,
+            }
+        }
+        pub fn dummy_with_halflife(halflife: f64) -> Self {
+            let mut args = Self::dummy();
+            args.history_halflife = halflife;
+            args
+        }
     }
 }

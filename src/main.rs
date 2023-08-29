@@ -1,27 +1,10 @@
-use std::{
-    collections::HashMap,
-    fs,
-    path::{Path, PathBuf},
-};
+use std::{collections::HashMap, fs, path::Path};
 
 use anyhow::{anyhow, Context, Result};
 use clap::Parser;
 use log::info;
 
-use selection::choose;
-
-mod selection;
-
-#[derive(Parser, Debug)]
-pub struct Args {
-    participants: PathBuf,
-    #[arg(long)]
-    history: Option<PathBuf>,
-    #[arg(long, default_value_t = 10.0)]
-    history_halflife: f64,
-    #[arg(long)]
-    n_simulations: Option<usize>,
-}
+use nextspeaker::{choose, Args};
 
 fn non_blanks(path: &Path) -> Result<Vec<String>> {
     let content = fs::read_to_string(path).with_context(|| format!("reading {path:?}"))?;
@@ -48,8 +31,8 @@ fn main() -> Result<()> {
     if let Some(n_simulations) = args.n_simulations {
         let mut counts: HashMap<_, _> = HashMap::new();
         for _ in 0..n_simulations {
-            let selection =
-                choose(&participants, &history, &args).context("choosing participant")?;
+            let selection = choose(&participants, &history, args.history_halflife)
+                .context("choosing participant")?;
             counts
                 .entry(selection)
                 .and_modify(|count| *count += 1)
@@ -70,29 +53,9 @@ fn main() -> Result<()> {
             );
         }
     } else {
-        let selection = choose(&participants, &history, &args).context("choosing participant")?;
+        let selection = choose(&participants, &history, args.history_halflife)
+            .context("choosing participant")?;
         info!("selection:{selection}");
     }
     Ok(())
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    impl Args {
-        pub fn dummy() -> Self {
-            Self {
-                participants: PathBuf::from("dummy"),
-                history: Some(PathBuf::from("dummy-history")),
-                history_halflife: 10.0,
-                n_simulations: None,
-            }
-        }
-        pub fn dummy_with_halflife(halflife: f64) -> Self {
-            let mut args = Self::dummy();
-            args.history_halflife = halflife;
-            args
-        }
-    }
 }
