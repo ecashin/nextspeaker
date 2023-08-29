@@ -33,6 +33,7 @@ fn from_lines(text: &str) -> Result<Vec<String>> {
 
 #[derive(Properties, PartialEq)]
 struct TextProps {
+    heading: String,
     oninput: Callback<InputEvent>,
     text: String,
 }
@@ -40,7 +41,29 @@ struct TextProps {
 #[function_component]
 fn Text(props: &TextProps) -> Html {
     html! {
-        <textarea value={props.text.clone()} oninput={props.oninput.clone()}></textarea>
+        <div>
+            <h3>{props.heading.clone()}</h3>
+            <textarea value={props.text.clone()} oninput={props.oninput.clone()}></textarea>
+        </div>
+    }
+}
+
+#[derive(Properties, PartialEq)]
+struct SelectionProps {
+    text: Option<String>,
+}
+
+#[function_component]
+fn Selection(props: &SelectionProps) -> Html {
+    if let Some(s) = &props.text {
+        html! {
+            <div>
+                <span>{"selection: "}</span>
+                <span>{ s.clone() }</span>
+            </div>
+        }
+    } else {
+        html! {}
     }
 }
 
@@ -127,22 +150,15 @@ impl Component for Model {
         }
         .to_owned();
         let history_text = if let Some(h) = &self.history { h } else { "" }.to_owned();
-        let selection = if let Some(s) = &self.selected {
-            html! {
-                <p>{ s.clone() }</p>
-            }
-        } else {
-            html! {}
-        };
         html! {
             <div class="content-area">
-                <Text text={candidates_text.clone()} oninput={candidates_oninput}></Text>
-                <Text text={history_text.clone()} oninput={history_oninput}></Text>
+                <Text heading={"candidates".to_owned()} text={candidates_text.clone()} oninput={candidates_oninput}></Text>
+                <Text heading={"history".to_owned()} text={history_text.clone()} oninput={history_oninput}></Text>
                 <div class="action-area">
                     <button onclick={onchoose}>{"CHOOSE"}</button>
                 </div>
                 <div class="selection-display">
-                    { selection }
+                    <Selection text={self.selected.clone()} />
                 </div>
             </div>
         }
