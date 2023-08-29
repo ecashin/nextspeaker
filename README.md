@@ -221,3 +221,12 @@ set to `info` or even `debug`.
 This environment variable controls the verbosity
 of the logging output.
 
+## Web Demo
+
+There is a much simplified version of this tool
+available at the URL below.
+It uses default settings.
+Local web storage makes the data you enter persist
+for each of your browsers.
+
+[Click Here for Demo](https://ecashin.github.io/nextspeaker/)
