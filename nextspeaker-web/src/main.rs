@@ -63,16 +63,14 @@ fn DismissableText(props: &DismissableTextProps) -> Html {
 
 #[derive(Properties, PartialEq)]
 struct ModeSelectProps {
-    candidates_view: Callback<MouseEvent>,
-    history_view: Callback<MouseEvent>,
+    buttons: Html,
 }
 
 #[styled_component]
 fn ModeSelect(props: &ModeSelectProps) -> Html {
     html! {
         <div class={css!("width: 50%; padding: 3rem; margin: 1rem;")}>
-            <button onclick={props.candidates_view.clone()}>{"candidates"}</button>
-            <button onclick={props.history_view.clone()}>{"history"}</button>
+            { props.buttons.clone() }
         </div>
     }
 }
@@ -209,11 +207,17 @@ impl Component for Model {
         let dismiss = ctx
             .link()
             .callback(|_e: MouseEvent| Msg::ChangeView(Mode::MainView));
+        let mode_select_buttons = html! {
+            <div>
+                <button onclick={candidates_view.clone()}>{"candidates"}</button>
+                <button onclick={history_view.clone()}>{"history"}</button>
+            </div>
+        };
         match self.mode {
             Mode::MainView => {
                 html! {
                     <div class="content-area">
-                        <ModeSelect candidates_view={candidates_view} history_view={history_view}></ModeSelect>
+                        <ModeSelect buttons={mode_select_buttons}></ModeSelect>
                         <div class="action-area">
                             <button onclick={onchoose}>{"CHOOSE"}</button>
                         </div>
