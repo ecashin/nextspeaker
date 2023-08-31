@@ -13,11 +13,9 @@ const NEXTSPEAKER_KEY: &str = "It's next speaker by ed.cashin@acm.org!";
 
 enum Msg {
     CandidatesUpdate(String),
-    CandidatesView,
+    ChangeView(Mode),
     Choose,
     HistoryUpdate(String),
-    HistoryView,
-    MainView,
 }
 
 enum Mode {
@@ -162,8 +160,8 @@ impl Component for Model {
                 self.candidates = Some(v);
                 self.save();
             }
-            Msg::CandidatesView => {
-                self.mode = Mode::CandidatesView;
+            Msg::ChangeView(mode) => {
+                self.mode = mode;
             }
             Msg::Choose => {
                 let history_text = if let Some(h) = &self.history { h } else { "" };
@@ -180,12 +178,6 @@ impl Component for Model {
             Msg::HistoryUpdate(v) => {
                 self.history = Some(v);
                 self.save();
-            }
-            Msg::MainView => {
-                self.mode = Mode::MainView;
-            }
-            Msg::HistoryView => {
-                self.mode = Mode::HistoryView;
             }
         };
         true
@@ -208,9 +200,15 @@ impl Component for Model {
         }
         .to_owned();
         let history_text = if let Some(h) = &self.history { h } else { "" }.to_owned();
-        let candidates_view = ctx.link().callback(|_e: MouseEvent| Msg::CandidatesView);
-        let history_view = ctx.link().callback(|_e: MouseEvent| Msg::HistoryView);
-        let dismiss = ctx.link().callback(|_e: MouseEvent| Msg::MainView);
+        let candidates_view = ctx
+            .link()
+            .callback(|_e: MouseEvent| Msg::ChangeView(Mode::CandidatesView));
+        let history_view = ctx
+            .link()
+            .callback(|_e: MouseEvent| Msg::ChangeView(Mode::HistoryView));
+        let dismiss = ctx
+            .link()
+            .callback(|_e: MouseEvent| Msg::ChangeView(Mode::MainView));
         match self.mode {
             Mode::MainView => {
                 html! {
