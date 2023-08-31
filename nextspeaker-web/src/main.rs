@@ -53,9 +53,12 @@ struct DismissableTextProps {
 #[styled_component]
 fn DismissableText(props: &DismissableTextProps) -> Html {
     html! {
-        <div class={css!("width: 100%; padding: 1rem;")}>
-            <button class={css!("color: red;")} onclick={props.dismiss.clone()}>{"X"}</button>
+        <div class={css!("background-color: lightgray; display: grid; width: 90%; padding: 1rem; grid-template-columns: 80% 20%;")}>
             <Text heading={props.heading.clone()} text={props.text.clone()} oninput={props.oninput.clone()}></Text>
+            <button
+                class={css!("color: red; justify-self: right; align-self: start; height: 1.6rem;")}
+                onclick={props.dismiss.clone()}
+            >{"X"}</button>
         </div>
     }
 }
@@ -69,7 +72,7 @@ struct ModeSelectProps {
 #[styled_component]
 fn ModeSelect(props: &ModeSelectProps) -> Html {
     html! {
-        <div class={css!("width: 80%; margin: 3rem;")}>
+        <div class={css!("width: 50%; padding: 3rem; margin: 1rem;")}>
             <button onclick={props.candidates_view.clone()}>{"candidates"}</button>
             <button onclick={props.history_view.clone()}>{"history"}</button>
         </div>
@@ -101,10 +104,10 @@ struct SelectionProps {
 #[function_component]
 fn Selection(props: &SelectionProps) -> Html {
     if let Some(s) = &props.text {
+        let text = format!("selection: {s}");
         html! {
             <div>
-                <span>{"selection: "}</span>
-                <span>{ s.clone() }</span>
+                <p>{text}</p>
             </div>
         }
     } else {
