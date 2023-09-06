@@ -1,5 +1,6 @@
 use anyhow::Result;
 use gloo_console::log;
+use stylist::yew::styled_component;
 use wasm_bindgen::JsValue;
 use web_sys::HtmlTextAreaElement;
 use yew::prelude::*;
@@ -12,14 +13,22 @@ const NEXTSPEAKER_KEY: &str = "It's next speaker by ed.cashin@acm.org!";
 
 enum Msg {
     CandidatesUpdate(String),
+    ChangeView(Mode),
     Choose,
     HistoryUpdate(String),
+}
+
+enum Mode {
+    CandidatesView,
+    HistoryView,
+    MainView,
 }
 
 struct Model {
     candidates: Option<String>,
     history: Option<String>,
     local_store: LocalStore,
+    mode: Mode,
     selected: Option<String>,
 }
 
@@ -32,16 +41,51 @@ fn from_lines(text: &str) -> Result<Vec<String>> {
 }
 
 #[derive(Properties, PartialEq)]
+struct DismissableTextProps {
+    heading: String,
+    oninput: Callback<InputEvent>,
+    dismiss: Callback<MouseEvent>,
+    text: String,
+}
+
+#[styled_component]
+fn DismissableText(props: &DismissableTextProps) -> Html {
+    html! {
+        <div class={css!("background-color: lightgray; display: grid; width: 90%; padding: 1rem; grid-template-columns: 80% 20%;")}>
+            <Text heading={props.heading.clone()} text={props.text.clone()} oninput={props.oninput.clone()}></Text>
+            <button
+                class={css!("color: red; justify-self: right; align-self: start; height: 1.6rem;")}
+                onclick={props.dismiss.clone()}
+            >{"X"}</button>
+        </div>
+    }
+}
+
+#[derive(Properties, PartialEq)]
+struct ModeSelectProps {
+    buttons: Html,
+}
+
+#[styled_component]
+fn ModeSelect(props: &ModeSelectProps) -> Html {
+    html! {
+        <div class={css!("width: 50%; padding: 3rem; margin: 1rem;")}>
+            { props.buttons.clone() }
+        </div>
+    }
+}
+
+#[derive(Properties, PartialEq)]
 struct TextProps {
     heading: String,
     oninput: Callback<InputEvent>,
     text: String,
 }
 
-#[function_component]
+#[styled_component]
 fn Text(props: &TextProps) -> Html {
     html! {
-        <div>
+        <div class={css!("width: 80%; margin: 3rem; height: 80%;")}>
             <h3>{props.heading.clone()}</h3>
             <textarea value={props.text.clone()} oninput={props.oninput.clone()}></textarea>
         </div>
@@ -56,10 +100,10 @@ struct SelectionProps {
 #[function_component]
 fn Selection(props: &SelectionProps) -> Html {
     if let Some(s) = &props.text {
+        let text = format!("selection: {s}");
         html! {
             <div>
-                <span>{"selection: "}</span>
-                <span>{ s.clone() }</span>
+                <p>{text}</p>
             </div>
         }
     } else {
@@ -103,6 +147,7 @@ impl Component for Model {
             candidates: Some(candidates),
             history: Some(history),
             local_store,
+            mode: Mode::MainView,
             selected: None,
         }
     }
@@ -112,6 +157,9 @@ impl Component for Model {
             Msg::CandidatesUpdate(v) => {
                 self.candidates = Some(v);
                 self.save();
+            }
+            Msg::ChangeView(mode) => {
+                self.mode = mode;
             }
             Msg::Choose => {
                 let history_text = if let Some(h) = &self.history { h } else { "" };
@@ -150,17 +198,55 @@ impl Component for Model {
         }
         .to_owned();
         let history_text = if let Some(h) = &self.history { h } else { "" }.to_owned();
-        html! {
-            <div class="content-area">
-                <Text heading={"candidates".to_owned()} text={candidates_text.clone()} oninput={candidates_oninput}></Text>
-                <Text heading={"history".to_owned()} text={history_text.clone()} oninput={history_oninput}></Text>
-                <div class="action-area">
-                    <button onclick={onchoose}>{"CHOOSE"}</button>
-                </div>
-                <div class="selection-display">
-                    <Selection text={self.selected.clone()} />
-                </div>
+        let candidates_view = ctx
+            .link()
+            .callback(|_e: MouseEvent| Msg::ChangeView(Mode::CandidatesView));
+        let history_view = ctx
+            .link()
+            .callback(|_e: MouseEvent| Msg::ChangeView(Mode::HistoryView));
+        let dismiss = ctx
+            .link()
+            .callback(|_e: MouseEvent| Msg::ChangeView(Mode::MainView));
+        let mode_select_buttons = html! {
+            <div>
+                <button onclick={candidates_view.clone()}>{"candidates"}</button>
+                <button onclick={history_view.clone()}>{"history"}</button>
             </div>
+        };
+        match self.mode {
+            Mode::MainView => {
+                html! {
+                    <div class="content-area">
+                        <ModeSelect buttons={mode_select_buttons}></ModeSelect>
+                        <div class="action-area">
+                            <button onclick={onchoose}>{"CHOOSE"}</button>
+                        </div>
+                        <div class="selection-display">
+                            <Selection text={self.selected.clone()} />
+                        </div>
+                    </div>
+                }
+            }
+            Mode::CandidatesView => {
+                html! {
+                    <DismissableText
+                        heading={"candidates".to_owned()}
+                        text={candidates_text.clone()}
+                        oninput={candidates_oninput}
+                        dismiss={dismiss.clone()}
+                    ></DismissableText>
+                }
+            }
+            Mode::HistoryView => {
+                html! {
+                    <DismissableText
+                        heading={"history".to_owned()}
+                        text={history_text.clone()}
+                        oninput={history_oninput}
+                        dismiss={dismiss}
+                    ></DismissableText>
+                }
+            }
         }
     }
 }
