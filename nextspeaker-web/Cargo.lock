@@ -795,6 +795,7 @@ dependencies = [
  "gloo-console 0.3.0",
  "gloo-storage 0.3.0",
  "nextspeaker",
+ "serde",
  "serde_derive",
  "serde_json",
  "sha2",

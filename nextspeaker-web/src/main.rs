@@ -1,21 +1,40 @@
 use anyhow::Result;
 use gloo_console::log;
+use serde::{Deserialize, Serialize};
 use stylist::yew::styled_component;
 use wasm_bindgen::JsValue;
-use web_sys::HtmlTextAreaElement;
+use web_sys::{HtmlInputElement, HtmlTextAreaElement};
 use yew::prelude::*;
 
 use localstore::LocalStore;
+use nextspeaker::DEFAULT_HALFLIFE;
 
 mod localstore;
 
+const LOCAL_STATE_SCHEMA_VERSION: &str = "v0.1";
 const NEXTSPEAKER_KEY: &str = "It's next speaker by ed.cashin@acm.org!";
+
+#[derive(Serialize, Deserialize)]
+struct StoredState {
+    history_halflife: f64,
+    candidates: String,
+    history: String,
+}
+
+fn default_initial_state() -> StoredState {
+    StoredState {
+        candidates: "".to_owned(),
+        history_halflife: DEFAULT_HALFLIFE,
+        history: "".to_owned(),
+    }
+}
 
 enum Msg {
     CandidatesUpdate(String),
     ChangeView(Mode),
     Choose,
     HistoryUpdate(String),
+    HistoryHalflifeUpdate(String),
 }
 
 enum Mode {
@@ -27,6 +46,7 @@ enum Mode {
 struct Model {
     candidates: Option<String>,
     history: Option<String>,
+    history_halflife: f64,
     local_store: LocalStore,
     mode: Mode,
     selected: Option<String>,
@@ -38,6 +58,29 @@ fn from_lines(text: &str) -> Result<Vec<String>> {
         .filter(|i| !i.is_empty())
         .map(|s| s.to_string())
         .collect())
+}
+
+#[derive(Properties, PartialEq)]
+struct HistoryHalflifeProps {
+    oninput: Callback<InputEvent>,
+    value: f64,
+}
+
+#[styled_component]
+fn HistoryHalflife(props: &HistoryHalflifeProps) -> Html {
+    let value = props.value.to_string();
+    html! {
+        <div>
+            <label for={"hhl2die4"}>{"History halflife:"}</label>
+            <input
+                type={"number"}
+                id={"hhl2die4"}
+                value={value}
+                step={"any"}
+                oninput={props.oninput.clone()}
+            />
+        </div>
+    }
 }
 
 #[derive(Properties, PartialEq)]
@@ -113,13 +156,19 @@ fn Selection(props: &SelectionProps) -> Html {
 
 impl Model {
     fn save(&mut self) {
-        let c = if let Some(c) = &self.candidates {
+        let candidates = if let Some(c) = &self.candidates {
             c
         } else {
             ""
         };
-        let h = if let Some(h) = &self.history { h } else { "" };
-        let json = serde_json::to_string(&vec![c, h]).unwrap();
+        let history = if let Some(h) = &self.history { h } else { "" };
+        let ss = serde_json::to_string(&StoredState {
+            candidates: candidates.to_owned(),
+            history: history.to_owned(),
+            history_halflife: self.history_halflife,
+        })
+        .unwrap();
+        let json = serde_json::to_string(&vec![LOCAL_STATE_SCHEMA_VERSION, &ss]).unwrap();
         self.local_store.save(&json).unwrap();
     }
 }
@@ -130,22 +179,31 @@ impl Component for Model {
 
     fn create(_ctx: &Context<Self>) -> Self {
         let local_store = LocalStore::new(NEXTSPEAKER_KEY, "").unwrap();
-        let texts: Vec<String> = match serde_json::from_str(&local_store.value()) {
-            Ok(t) => t,
+        let state: StoredState = match serde_json::from_str::<Vec<String>>(&local_store.value()) {
+            Ok(t) => {
+                if t.len() > 1 && t[0] == LOCAL_STATE_SCHEMA_VERSION {
+                    match serde_json::from_str(&t[1]) {
+                        Ok(stored_state) => stored_state,
+                        Err(e) => {
+                            log!(format!("cannot load local storage: {e}"));
+                            default_initial_state()
+                        }
+                    }
+                } else {
+                    log!("mismatched local storage---aborting");
+                    None::<f64>.unwrap(); // Don't want to overwrite existing state.
+                    default_initial_state() // (unreached)
+                }
+            }
             Err(e) => {
                 log!(format!("cannot load local storage: {e}"));
-                vec!["".to_owned(), "".to_owned()]
+                default_initial_state()
             }
         };
-        let (candidates, history) = if texts.len() != 2 {
-            log!("found bad local storage data");
-            ("".to_owned(), "".to_owned())
-        } else {
-            (texts[0].clone(), texts[1].clone())
-        };
         Self {
-            candidates: Some(candidates),
-            history: Some(history),
+            candidates: Some(state.candidates),
+            history: Some(state.history),
+            history_halflife: state.history_halflife,
             local_store,
             mode: Mode::MainView,
             selected: None,
@@ -166,7 +224,8 @@ impl Component for Model {
                 if let Some(candidates) = &self.candidates {
                     let candidates = from_lines(candidates).unwrap();
                     let history = from_lines(history_text).unwrap();
-                    let selected = nextspeaker::choose(&candidates, &history, 10.0).unwrap();
+                    let selected =
+                        nextspeaker::choose(&candidates, &history, self.history_halflife).unwrap();
                     self.history = Some(history_text_append(history_text, &selected));
                     self.selected = Some(selected);
                     log!(JsValue::from(self.selected.as_ref()));
@@ -177,6 +236,15 @@ impl Component for Model {
                 self.history = Some(v);
                 self.save();
             }
+            Msg::HistoryHalflifeUpdate(v) => match &v.parse::<f64>() {
+                Ok(hh) => {
+                    self.history_halflife = *hh;
+                    self.save();
+                }
+                Err(e) => {
+                    log!(JsValue::from(&format!("cannot parse {v} as f64: {e}")));
+                }
+            },
         };
         true
     }
@@ -189,6 +257,10 @@ impl Component for Model {
         let history_oninput = ctx.link().callback(|e: InputEvent| {
             let input: HtmlTextAreaElement = e.target_unchecked_into::<HtmlTextAreaElement>();
             Msg::HistoryUpdate(input.value())
+        });
+        let history_halflife_oninput = ctx.link().callback(|e: InputEvent| {
+            let input: HtmlInputElement = e.target_unchecked_into::<HtmlInputElement>();
+            Msg::HistoryHalflifeUpdate(input.value())
         });
         let onchoose = ctx.link().callback(|_| Msg::Choose);
         let candidates_text = if let Some(c) = &self.candidates {
@@ -239,12 +311,18 @@ impl Component for Model {
             }
             Mode::HistoryView => {
                 html! {
-                    <DismissableText
-                        heading={"history".to_owned()}
-                        text={history_text.clone()}
-                        oninput={history_oninput}
-                        dismiss={dismiss}
-                    ></DismissableText>
+                    <div>
+                        <HistoryHalflife
+                            value={self.history_halflife}
+                            oninput={history_halflife_oninput}
+                        ></HistoryHalflife>
+                        <DismissableText
+                            heading={"history".to_owned()}
+                            text={history_text.clone()}
+                            oninput={history_oninput}
+                            dismiss={dismiss}
+                        ></DismissableText>
+                    </div>
                 }
             }
         }
