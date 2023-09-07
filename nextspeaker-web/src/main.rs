@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use anyhow::Result;
 use gloo_console::log;
 use serde::{Deserialize, Serialize};
@@ -12,6 +14,7 @@ use nextspeaker::DEFAULT_HALFLIFE;
 mod localstore;
 
 const LOCAL_STATE_SCHEMA_VERSION: &str = "v0.1";
+const N_SIM: i32 = 1000;
 const NEXTSPEAKER_KEY: &str = "It's next speaker by ed.cashin@acm.org!";
 
 #[derive(Serialize, Deserialize)]
@@ -35,12 +38,14 @@ enum Msg {
     Choose,
     HistoryUpdate(String),
     HistoryHalflifeUpdate(String),
+    RunSimulation,
 }
 
 enum Mode {
     CandidatesView,
     HistoryView,
     MainView,
+    SimulationView,
 }
 
 struct Model {
@@ -50,6 +55,7 @@ struct Model {
     local_store: LocalStore,
     mode: Mode,
     selected: Option<String>,
+    simulation_results: Option<Vec<(String, u64)>>,
 }
 
 fn from_lines(text: &str) -> Result<Vec<String>> {
@@ -58,6 +64,53 @@ fn from_lines(text: &str) -> Result<Vec<String>> {
         .filter(|i| !i.is_empty())
         .map(|s| s.to_string())
         .collect())
+}
+
+#[derive(Properties, PartialEq)]
+struct SimulationPanelProps {
+    simulate: Callback<MouseEvent>,
+    results: Option<Vec<(String, u64)>>,
+}
+
+#[styled_component]
+fn SimulationPanel(props: &SimulationPanelProps) -> Html {
+    html! {
+        <div>
+            <button onclick={props.simulate.clone()}>
+                {format!("run simulation {N_SIM} times")}
+            </button>
+            <SimulationResults results={props.results.clone()} />
+        </div>
+    }
+}
+
+#[derive(Properties, PartialEq)]
+struct SimulationResultsProps {
+    results: Option<Vec<(String, u64)>>,
+}
+
+#[styled_component]
+fn SimulationResults(props: &SimulationResultsProps) -> Html {
+    if let Some(results) = &props.results {
+        html! {
+            <table>
+                <tr><th>{"candidate"}</th><th>{"selection count"}</th></tr>
+                {
+                    results.into_iter().map(|(candidate, count)| {
+                        html! {
+                            <tr key={candidate.clone()}><td>{candidate}</td><td>{count}</td></tr>
+                        }
+                    }).collect::<Html>()
+                }
+            </table>
+        }
+    } else {
+        html! {
+            <div>
+                {"no results yet"}
+            </div>
+        }
+    }
 }
 
 #[derive(Properties, PartialEq)]
@@ -84,6 +137,21 @@ fn HistoryHalflife(props: &HistoryHalflifeProps) -> Html {
 }
 
 #[derive(Properties, PartialEq)]
+struct DismissButtonProps {
+    onclick: Callback<MouseEvent>,
+}
+
+#[styled_component]
+fn DismissButton(props: &DismissButtonProps) -> Html {
+    html! {
+        <button
+            class={css!("color: red; justify-self: right; align-self: start; height: 1.6rem;")}
+            onclick={props.onclick.clone()}
+        >{"X"}</button>
+    }
+}
+
+#[derive(Properties, PartialEq)]
 struct DismissableTextProps {
     heading: String,
     oninput: Callback<InputEvent>,
@@ -96,10 +164,7 @@ fn DismissableText(props: &DismissableTextProps) -> Html {
     html! {
         <div class={css!("background-color: lightgray; display: grid; width: 90%; padding: 1rem; grid-template-columns: 80% 20%;")}>
             <Text heading={props.heading.clone()} text={props.text.clone()} oninput={props.oninput.clone()}></Text>
-            <button
-                class={css!("color: red; justify-self: right; align-self: start; height: 1.6rem;")}
-                onclick={props.dismiss.clone()}
-            >{"X"}</button>
+            <DismissButton onclick={props.dismiss.clone()}></DismissButton>
         </div>
     }
 }
@@ -207,6 +272,7 @@ impl Component for Model {
             local_store,
             mode: Mode::MainView,
             selected: None,
+            simulation_results: None,
         }
     }
 
@@ -245,6 +311,21 @@ impl Component for Model {
                     log!(JsValue::from(&format!("cannot parse {v} as f64: {e}")));
                 }
             },
+            Msg::RunSimulation => {
+                let history_text = if let Some(h) = &self.history { h } else { "" };
+                if let Some(candidates) = &self.candidates {
+                    let candidates = from_lines(candidates).unwrap();
+                    let history = from_lines(history_text).unwrap();
+                    let mut counts: HashMap<String, u64> = HashMap::new();
+                    for _ in 0..N_SIM {
+                        let selected =
+                            nextspeaker::choose(&candidates, &history, self.history_halflife)
+                                .unwrap();
+                        *counts.entry(selected).or_insert(0) += 1;
+                    }
+                    self.simulation_results = Some(counts.into_iter().collect());
+                }
+            }
         };
         true
     }
@@ -279,10 +360,15 @@ impl Component for Model {
         let dismiss = ctx
             .link()
             .callback(|_e: MouseEvent| Msg::ChangeView(Mode::MainView));
+        let run_simulation = ctx.link().callback(|_e: MouseEvent| Msg::RunSimulation);
+        let simulate = ctx
+            .link()
+            .callback(|_e: MouseEvent| Msg::ChangeView(Mode::SimulationView));
         let mode_select_buttons = html! {
             <div>
                 <button onclick={candidates_view.clone()}>{"candidates"}</button>
                 <button onclick={history_view.clone()}>{"history"}</button>
+                <button onclick={simulate.clone()}>{"simulate"}</button>
             </div>
         };
         match self.mode {
@@ -322,6 +408,15 @@ impl Component for Model {
                             oninput={history_oninput}
                             dismiss={dismiss}
                         ></DismissableText>
+                    </div>
+                }
+            }
+            Mode::SimulationView => {
+                html! {
+                    <div>
+                        <h2>{"Simulation of Next Choice"}</h2>
+                        <DismissButton onclick={dismiss} />
+                        <SimulationPanel simulate={run_simulation} results={self.simulation_results.clone()} />
                     </div>
                 }
             }
