@@ -100,11 +100,30 @@ fn SimulationResults(props: &SimulationResultsProps) -> Html {
     if let Some(results) = &props.results {
         html! {
             <table>
-                <tr><th>{"candidate"}</th><th>{"selection count"}</th></tr>
+                <tr><th>{"candidate"}</th><th width={"80%"}>{"selection count"}</th></tr>
                 {
                     results.into_iter().map(|(candidate, count)| {
+                        let pct = 100.0 * (*count as f64 / N_SIM as f64);
+                        let pct = format!("{pct}%");
+                        let bar_style = css!(
+                            min-width: ${pct};
+                            box-sizing: border-box;
+                            flex: 0 0 auto;
+                            color: darkgray;
+                            background-color: darkgray;
+                        );
                         html! {
-                            <tr key={candidate.clone()}><td>{candidate}</td><td>{count}</td></tr>
+                            <tr key={candidate.clone()}>
+                                <td>{candidate}</td>
+                                <td>
+                                <div
+                                    class={css!("background-color: lightgray; display: flex; flex-flow: row; width: 80%;")}
+                                >
+                                    <div class={bar_style}>{"X"}</div>
+                                    <div class={css!("background-color: lightgray; flex: 1;")}></div>
+                                </div>
+                                </td>
+                            </tr>
                         }
                     }).collect::<Html>()
                 }
@@ -225,6 +244,12 @@ fn Selection(props: &SelectionProps) -> Html {
     }
 }
 
+fn sorted_counts(counts: HashMap<String, u64>) -> Vec<(String, u64)> {
+    let mut count_vec = counts.into_iter().collect::<Vec<_>>();
+    count_vec.sort_by(|(n1, _), (n2, _)| n1.cmp(n2));
+    count_vec
+}
+
 impl Model {
     fn save(&mut self) {
         let candidates = if let Some(c) = &self.candidates {
@@ -322,14 +347,15 @@ impl Component for Model {
                 if let Some(candidates) = &self.candidates {
                     let candidates = from_lines(candidates).unwrap();
                     let history = from_lines(history_text).unwrap();
-                    let mut counts: HashMap<String, u64> = HashMap::new();
+                    let mut counts: HashMap<String, u64> =
+                        candidates.iter().map(|c| (c.clone(), 0)).collect();
                     for _ in 0..N_SIM {
                         let selected =
                             nextspeaker::choose(&candidates, &history, self.history_halflife)
                                 .unwrap();
                         *counts.entry(selected).or_insert(0) += 1;
                     }
-                    self.simulation_results = Some(counts.into_iter().collect());
+                    self.simulation_results = Some(sorted_counts(counts));
                 }
             }
         };
