@@ -15,7 +15,7 @@ mod components;
 mod localstore;
 
 const LOCAL_STATE_SCHEMA_VERSION: &str = "v0.1";
-const N_SIM: i32 = 1000;
+const N_SIM: u64 = 1000;
 const NEXTSPEAKER_KEY: &str = "It's next speaker by ed.cashin@acm.org!";
 
 #[derive(Serialize, Deserialize)]

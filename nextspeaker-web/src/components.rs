@@ -30,6 +30,44 @@ pub fn SimulationPanel(props: &SimulationPanelProps) -> Html {
 }
 
 #[derive(Properties, PartialEq)]
+pub struct SimulationBarProps {
+    pub candidate: String,
+    pub count: u64,
+    pub total: u64,
+}
+
+#[styled_component]
+pub fn SimulationBar(props: &SimulationBarProps) -> Html {
+    let SimulationBarProps {
+        candidate,
+        count,
+        total,
+    } = props;
+    let pct = 100.0 * (*count as f64 / *total as f64);
+    let pct = format!("{pct}%");
+    let bar_style = css!(
+        min-width: ${pct};
+        box-sizing: border-box;
+        flex: 0 0 auto;
+        color: darkgray;
+        background-color: darkgray;
+    );
+    html! {
+        <tr key={candidate.clone()}>
+            <td>{candidate}</td>
+            <td>
+            <div
+                class={css!("background-color: whitesmoke; display: flex; flex-flow: row; width: 80%;")}
+            >
+                <div class={bar_style}>{"X"}</div>
+                <div class={css!("background-color: whitesmoke; flex: 1;")}></div>
+            </div>
+            </td>
+        </tr>
+    }
+}
+
+#[derive(Properties, PartialEq)]
 pub struct SimulationResultsProps {
     pub results: Option<Vec<(String, u64)>>,
 }
@@ -42,27 +80,12 @@ pub fn SimulationResults(props: &SimulationResultsProps) -> Html {
                 <tr><th>{"candidate"}</th><th width={"80%"}>{"selection count"}</th></tr>
                 {
                     results.into_iter().map(|(candidate, count)| {
-                        let pct = 100.0 * (*count as f64 / N_SIM as f64);
-                        let pct = format!("{pct}%");
-                        let bar_style = css!(
-                            min-width: ${pct};
-                            box-sizing: border-box;
-                            flex: 0 0 auto;
-                            color: darkgray;
-                            background-color: darkgray;
-                        );
                         html! {
-                            <tr key={candidate.clone()}>
-                                <td>{candidate}</td>
-                                <td>
-                                <div
-                                    class={css!("background-color: whitesmoke; display: flex; flex-flow: row; width: 80%;")}
-                                >
-                                    <div class={bar_style}>{"X"}</div>
-                                    <div class={css!("background-color: whitesmoke; flex: 1;")}></div>
-                                </div>
-                                </td>
-                            </tr>
+                            <SimulationBar
+                                candidate={candidate.clone()}
+                                count={*count}
+                                total={N_SIM}
+                            />
                         }
                     }).collect::<Html>()
                 }
