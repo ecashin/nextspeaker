@@ -76,10 +76,12 @@ struct SimulationPanelProps {
 #[styled_component]
 fn SimulationPanel(props: &SimulationPanelProps) -> Html {
     html! {
-        <div class={css!("display: flex; flex-direction: column;")}>
-            <div class={css!("align: row-reverse;")}>
+        <div class={css!("display: flex; background-color: lightgray; flex-direction: column;")}>
+            <div class={css!("display: flex; flex-flow: row-reverse;")}>
                 <DismissButton onclick={props.dismiss.clone()} />
+                <div class={css!("flex: 1;")} />
             </div>
+            <div><h2>{"Simulation of Next Choice"}</h2></div>
             <div>
                 <button onclick={props.simulate.clone()}>
                     {format!("run simulation {N_SIM} times")}
@@ -117,10 +119,10 @@ fn SimulationResults(props: &SimulationResultsProps) -> Html {
                                 <td>{candidate}</td>
                                 <td>
                                 <div
-                                    class={css!("background-color: lightgray; display: flex; flex-flow: row; width: 80%;")}
+                                    class={css!("background-color: whitesmoke; display: flex; flex-flow: row; width: 80%;")}
                                 >
                                     <div class={bar_style}>{"X"}</div>
-                                    <div class={css!("background-color: lightgray; flex: 1;")}></div>
+                                    <div class={css!("background-color: whitesmoke; flex: 1;")}></div>
                                 </div>
                                 </td>
                             </tr>
@@ -445,10 +447,7 @@ impl Component for Model {
             }
             Mode::SimulationView => {
                 html! {
-                    <div>
-                        <h2>{"Simulation of Next Choice"}</h2>
-                        <SimulationPanel dismiss={dismiss} simulate={run_simulation} results={self.simulation_results.clone()} />
-                    </div>
+                    <SimulationPanel dismiss={dismiss} simulate={run_simulation} results={self.simulation_results.clone()} />
                 }
             }
         }
