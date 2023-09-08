@@ -68,6 +68,7 @@ fn from_lines(text: &str) -> Result<Vec<String>> {
 
 #[derive(Properties, PartialEq)]
 struct SimulationPanelProps {
+    dismiss: Callback<MouseEvent>,
     simulate: Callback<MouseEvent>,
     results: Option<Vec<(String, u64)>>,
 }
@@ -75,11 +76,16 @@ struct SimulationPanelProps {
 #[styled_component]
 fn SimulationPanel(props: &SimulationPanelProps) -> Html {
     html! {
-        <div>
-            <button onclick={props.simulate.clone()}>
-                {format!("run simulation {N_SIM} times")}
-            </button>
-            <SimulationResults results={props.results.clone()} />
+        <div class={css!("display: flex; flex-direction: column;")}>
+            <div class={css!("align: row-reverse;")}>
+                <DismissButton onclick={props.dismiss.clone()} />
+            </div>
+            <div>
+                <button onclick={props.simulate.clone()}>
+                    {format!("run simulation {N_SIM} times")}
+                </button>
+                <SimulationResults results={props.results.clone()} />
+            </div>
         </div>
     }
 }
@@ -415,8 +421,7 @@ impl Component for Model {
                 html! {
                     <div>
                         <h2>{"Simulation of Next Choice"}</h2>
-                        <DismissButton onclick={dismiss} />
-                        <SimulationPanel simulate={run_simulation} results={self.simulation_results.clone()} />
+                        <SimulationPanel dismiss={dismiss} simulate={run_simulation} results={self.simulation_results.clone()} />
                     </div>
                 }
             }
