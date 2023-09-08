@@ -59,7 +59,7 @@ pub fn SimulationBar(props: &SimulationBarProps) -> Html {
             <div
                 class={css!("background-color: whitesmoke; display: flex; flex-flow: row; width: 80%;")}
             >
-                <div class={bar_style}>{"X"}</div>
+                <div class={bar_style}>{"|"}</div>
                 <div class={css!("background-color: whitesmoke; flex: 1;")}></div>
             </div>
             </td>
