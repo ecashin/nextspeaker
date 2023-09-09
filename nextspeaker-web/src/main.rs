@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use anyhow::Result;
 use gloo_console::log;
@@ -65,6 +65,18 @@ fn from_lines(text: &str) -> Result<Vec<String>> {
         .filter(|i| !i.is_empty())
         .map(|s| s.to_string())
         .collect())
+}
+
+fn ignore_non_candidates(candidates: &Vec<String>, history: Vec<String>) -> Vec<String> {
+    log!(JsValue::from(&format!("{:?}", candidates)));
+    let candidates: HashSet<_> = candidates.iter().collect();
+    log!(JsValue::from(&format!("{:?}", &history)));
+    let history = history
+        .into_iter()
+        .filter(|h| candidates.contains(h))
+        .collect();
+    log!(JsValue::from(&format!("{:?}", &history)));
+    history
 }
 
 fn sorted_counts(counts: HashMap<String, u64>) -> Vec<(String, u64)> {
@@ -144,6 +156,7 @@ impl Component for Model {
                 if let Some(candidates) = &self.candidates {
                     let candidates = from_lines(candidates).unwrap();
                     let history = from_lines(history_text).unwrap();
+                    let history = ignore_non_candidates(&candidates, history);
                     let selected =
                         nextspeaker::choose(&candidates, &history, self.history_halflife).unwrap();
                     self.history = Some(history_text_append(history_text, &selected));
