@@ -6,12 +6,14 @@ use log::{debug, info};
 use rand::distributions::WeightedIndex;
 use rand_distr::{Beta, Distribution};
 
+pub const DEFAULT_HALFLIFE: f64 = 10.0;
+
 #[derive(Parser, Debug)]
 pub struct Args {
     pub participants: PathBuf,
     #[arg(long)]
     pub history: Option<PathBuf>,
-    #[arg(long, default_value_t = 10.0)]
+    #[arg(long, default_value_t = DEFAULT_HALFLIFE)]
     pub history_halflife: f64,
     #[arg(long)]
     pub n_simulations: Option<usize>,
@@ -246,19 +248,11 @@ mod test {
             .collect::<Vec<_>>();
         for _ in 0..N_REPS {
             info!("halflife:{}", halflife_vals[0]);
-            let selection = choose(
-                &s.participants,
-                &s.history,
-                &Args::dummy_with_halflife(halflife_vals[0]),
-            )?;
+            let selection = choose(&s.participants, &s.history, halflife_vals[0])?;
             *selected[0].entry(selection).or_insert(0_usize) += 1;
 
             info!("halflife:{}", halflife_vals[1]);
-            let selection = choose(
-                &s.participants,
-                &s.history,
-                &Args::dummy_with_halflife(halflife_vals[1]),
-            )?;
+            let selection = choose(&s.participants, &s.history, halflife_vals[1])?;
             *selected[1].entry(selection).or_insert(0_usize) += 1;
         }
         debug!("selected:{selected:?}");
@@ -284,7 +278,7 @@ mod test {
             .collect::<Vec<_>>();
         let history = participants.clone();
         for _ in 0..N_REPS {
-            let choice = choose(&participants, &history, args)?;
+            let choice = choose(&participants, &history, args.history_halflife)?;
             for name in ["x", "y", "z"] {
                 assert_ne!(choice, name);
             }

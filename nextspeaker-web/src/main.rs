@@ -1,35 +1,62 @@
+use std::collections::{HashMap, HashSet};
+
 use anyhow::Result;
 use gloo_console::log;
-use stylist::yew::styled_component;
+use serde::{Deserialize, Serialize};
 use wasm_bindgen::JsValue;
-use web_sys::HtmlTextAreaElement;
+use web_sys::{HtmlInputElement, HtmlTextAreaElement};
 use yew::prelude::*;
 
+use components::{DismissableText, HistoryHalflife, ModeSelect, Selection, SimulationPanel};
 use localstore::LocalStore;
+use nextspeaker::DEFAULT_HALFLIFE;
 
+mod components;
 mod localstore;
 
-const NEXTSPEAKER_KEY: &str = "It's next speaker by ed.cashin@acm.org!";
+const LOCAL_STATE_SCHEMA_VERSION: &str = "v0.1";
+const N_SIM: u64 = 1000;
+const NEXTSPEAKER_KEY: &str = "It is next speaker by ed.cashin@acm.org!";
+
+#[derive(Serialize, Deserialize)]
+struct StoredState {
+    history_halflife: f64,
+    candidates: String,
+    history: String,
+}
+
+fn default_initial_state() -> StoredState {
+    StoredState {
+        candidates: "".to_owned(),
+        history_halflife: DEFAULT_HALFLIFE,
+        history: "".to_owned(),
+    }
+}
 
 enum Msg {
     CandidatesUpdate(String),
     ChangeView(Mode),
     Choose,
     HistoryUpdate(String),
+    HistoryHalflifeUpdate(String),
+    RunSimulation,
 }
 
 enum Mode {
     CandidatesView,
     HistoryView,
     MainView,
+    SimulationView,
 }
 
 struct Model {
     candidates: Option<String>,
     history: Option<String>,
+    history_halflife: f64,
     local_store: LocalStore,
     mode: Mode,
     selected: Option<String>,
+    simulation_results: Option<Vec<(String, u64)>>,
 }
 
 fn from_lines(text: &str) -> Result<Vec<String>> {
@@ -40,86 +67,39 @@ fn from_lines(text: &str) -> Result<Vec<String>> {
         .collect())
 }
 
-#[derive(Properties, PartialEq)]
-struct DismissableTextProps {
-    heading: String,
-    oninput: Callback<InputEvent>,
-    dismiss: Callback<MouseEvent>,
-    text: String,
+fn ignore_non_candidates(candidates: &Vec<String>, history: Vec<String>) -> Vec<String> {
+    log!(JsValue::from(&format!("{:?}", candidates)));
+    let candidates: HashSet<_> = candidates.iter().collect();
+    log!(JsValue::from(&format!("{:?}", &history)));
+    let history = history
+        .into_iter()
+        .filter(|h| candidates.contains(h))
+        .collect();
+    log!(JsValue::from(&format!("{:?}", &history)));
+    history
 }
 
-#[styled_component]
-fn DismissableText(props: &DismissableTextProps) -> Html {
-    html! {
-        <div class={css!("background-color: lightgray; display: grid; width: 90%; padding: 1rem; grid-template-columns: 80% 20%;")}>
-            <Text heading={props.heading.clone()} text={props.text.clone()} oninput={props.oninput.clone()}></Text>
-            <button
-                class={css!("color: red; justify-self: right; align-self: start; height: 1.6rem;")}
-                onclick={props.dismiss.clone()}
-            >{"X"}</button>
-        </div>
-    }
-}
-
-#[derive(Properties, PartialEq)]
-struct ModeSelectProps {
-    buttons: Html,
-}
-
-#[styled_component]
-fn ModeSelect(props: &ModeSelectProps) -> Html {
-    html! {
-        <div class={css!("width: 50%; padding: 3rem; margin: 1rem;")}>
-            { props.buttons.clone() }
-        </div>
-    }
-}
-
-#[derive(Properties, PartialEq)]
-struct TextProps {
-    heading: String,
-    oninput: Callback<InputEvent>,
-    text: String,
-}
-
-#[styled_component]
-fn Text(props: &TextProps) -> Html {
-    html! {
-        <div class={css!("width: 80%; margin: 3rem; height: 80%;")}>
-            <h3>{props.heading.clone()}</h3>
-            <textarea value={props.text.clone()} oninput={props.oninput.clone()}></textarea>
-        </div>
-    }
-}
-
-#[derive(Properties, PartialEq)]
-struct SelectionProps {
-    text: Option<String>,
-}
-
-#[function_component]
-fn Selection(props: &SelectionProps) -> Html {
-    if let Some(s) = &props.text {
-        let text = format!("selection: {s}");
-        html! {
-            <div>
-                <p>{text}</p>
-            </div>
-        }
-    } else {
-        html! {}
-    }
+fn sorted_counts(counts: HashMap<String, u64>) -> Vec<(String, u64)> {
+    let mut count_vec = counts.into_iter().collect::<Vec<_>>();
+    count_vec.sort_by(|(n1, _), (n2, _)| n1.cmp(n2));
+    count_vec
 }
 
 impl Model {
     fn save(&mut self) {
-        let c = if let Some(c) = &self.candidates {
+        let candidates = if let Some(c) = &self.candidates {
             c
         } else {
             ""
         };
-        let h = if let Some(h) = &self.history { h } else { "" };
-        let json = serde_json::to_string(&vec![c, h]).unwrap();
+        let history = if let Some(h) = &self.history { h } else { "" };
+        let ss = serde_json::to_string(&StoredState {
+            candidates: candidates.to_owned(),
+            history: history.to_owned(),
+            history_halflife: self.history_halflife,
+        })
+        .unwrap();
+        let json = serde_json::to_string(&vec![LOCAL_STATE_SCHEMA_VERSION, &ss]).unwrap();
         self.local_store.save(&json).unwrap();
     }
 }
@@ -130,25 +110,35 @@ impl Component for Model {
 
     fn create(_ctx: &Context<Self>) -> Self {
         let local_store = LocalStore::new(NEXTSPEAKER_KEY, "").unwrap();
-        let texts: Vec<String> = match serde_json::from_str(&local_store.value()) {
-            Ok(t) => t,
+        let state: StoredState = match serde_json::from_str::<Vec<String>>(&local_store.value()) {
+            Ok(t) => {
+                if t.len() > 1 && t[0] == LOCAL_STATE_SCHEMA_VERSION {
+                    match serde_json::from_str(&t[1]) {
+                        Ok(stored_state) => stored_state,
+                        Err(e) => {
+                            log!(format!("cannot load local storage: {e}"));
+                            default_initial_state()
+                        }
+                    }
+                } else {
+                    log!("mismatched local storage---aborting");
+                    None::<f64>.unwrap(); // Don't want to overwrite existing state.
+                    default_initial_state() // (unreached)
+                }
+            }
             Err(e) => {
                 log!(format!("cannot load local storage: {e}"));
-                vec!["".to_owned(), "".to_owned()]
+                default_initial_state()
             }
         };
-        let (candidates, history) = if texts.len() != 2 {
-            log!("found bad local storage data");
-            ("".to_owned(), "".to_owned())
-        } else {
-            (texts[0].clone(), texts[1].clone())
-        };
         Self {
-            candidates: Some(candidates),
-            history: Some(history),
+            candidates: Some(state.candidates),
+            history: Some(state.history),
+            history_halflife: state.history_halflife,
             local_store,
             mode: Mode::MainView,
             selected: None,
+            simulation_results: None,
         }
     }
 
@@ -166,7 +156,9 @@ impl Component for Model {
                 if let Some(candidates) = &self.candidates {
                     let candidates = from_lines(candidates).unwrap();
                     let history = from_lines(history_text).unwrap();
-                    let selected = nextspeaker::choose(&candidates, &history, 10.0).unwrap();
+                    let history = ignore_non_candidates(&candidates, history);
+                    let selected =
+                        nextspeaker::choose(&candidates, &history, self.history_halflife).unwrap();
                     self.history = Some(history_text_append(history_text, &selected));
                     self.selected = Some(selected);
                     log!(JsValue::from(self.selected.as_ref()));
@@ -176,6 +168,31 @@ impl Component for Model {
             Msg::HistoryUpdate(v) => {
                 self.history = Some(v);
                 self.save();
+            }
+            Msg::HistoryHalflifeUpdate(v) => match &v.parse::<f64>() {
+                Ok(hh) => {
+                    self.history_halflife = *hh;
+                    self.save();
+                }
+                Err(e) => {
+                    log!(JsValue::from(&format!("cannot parse {v} as f64: {e}")));
+                }
+            },
+            Msg::RunSimulation => {
+                let history_text = if let Some(h) = &self.history { h } else { "" };
+                if let Some(candidates) = &self.candidates {
+                    let candidates = from_lines(candidates).unwrap();
+                    let history = from_lines(history_text).unwrap();
+                    let mut counts: HashMap<String, u64> =
+                        candidates.iter().map(|c| (c.clone(), 0)).collect();
+                    for _ in 0..N_SIM {
+                        let selected =
+                            nextspeaker::choose(&candidates, &history, self.history_halflife)
+                                .unwrap();
+                        *counts.entry(selected).or_insert(0) += 1;
+                    }
+                    self.simulation_results = Some(sorted_counts(counts));
+                }
             }
         };
         true
@@ -189,6 +206,10 @@ impl Component for Model {
         let history_oninput = ctx.link().callback(|e: InputEvent| {
             let input: HtmlTextAreaElement = e.target_unchecked_into::<HtmlTextAreaElement>();
             Msg::HistoryUpdate(input.value())
+        });
+        let history_halflife_oninput = ctx.link().callback(|e: InputEvent| {
+            let input: HtmlInputElement = e.target_unchecked_into::<HtmlInputElement>();
+            Msg::HistoryHalflifeUpdate(input.value())
         });
         let onchoose = ctx.link().callback(|_| Msg::Choose);
         let candidates_text = if let Some(c) = &self.candidates {
@@ -207,18 +228,23 @@ impl Component for Model {
         let dismiss = ctx
             .link()
             .callback(|_e: MouseEvent| Msg::ChangeView(Mode::MainView));
+        let run_simulation = ctx.link().callback(|_e: MouseEvent| Msg::RunSimulation);
+        let simulate = ctx
+            .link()
+            .callback(|_e: MouseEvent| Msg::ChangeView(Mode::SimulationView));
         let mode_select_buttons = html! {
             <div>
                 <button onclick={candidates_view.clone()}>{"candidates"}</button>
                 <button onclick={history_view.clone()}>{"history"}</button>
+                <button onclick={simulate.clone()}>{"simulate"}</button>
             </div>
         };
         match self.mode {
             Mode::MainView => {
                 html! {
-                    <div class="content-area">
+                    <div>
                         <ModeSelect buttons={mode_select_buttons}></ModeSelect>
-                        <div class="action-area">
+                        <div>
                             <button onclick={onchoose}>{"CHOOSE"}</button>
                         </div>
                         <div class="selection-display">
@@ -239,12 +265,23 @@ impl Component for Model {
             }
             Mode::HistoryView => {
                 html! {
-                    <DismissableText
-                        heading={"history".to_owned()}
-                        text={history_text.clone()}
-                        oninput={history_oninput}
-                        dismiss={dismiss}
-                    ></DismissableText>
+                    <div>
+                        <HistoryHalflife
+                            value={self.history_halflife}
+                            oninput={history_halflife_oninput}
+                        ></HistoryHalflife>
+                        <DismissableText
+                            heading={"history".to_owned()}
+                            text={history_text.clone()}
+                            oninput={history_oninput}
+                            dismiss={dismiss}
+                        ></DismissableText>
+                    </div>
+                }
+            }
+            Mode::SimulationView => {
+                html! {
+                    <SimulationPanel dismiss={dismiss} simulate={run_simulation} results={self.simulation_results.clone()} />
                 }
             }
         }
