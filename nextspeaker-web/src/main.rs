@@ -16,7 +16,7 @@ mod localstore;
 
 const LOCAL_STATE_SCHEMA_VERSION: &str = "v0.1";
 const N_SIM: u64 = 1000;
-const NEXTSPEAKER_KEY: &str = "It's next speaker by ed.cashin@acm.org!";
+const NEXTSPEAKER_KEY: &str = "It is next speaker by ed.cashin@acm.org!";
 
 #[derive(Serialize, Deserialize)]
 struct StoredState {
