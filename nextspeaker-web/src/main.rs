@@ -9,7 +9,7 @@ use yew::prelude::*;
 use yewdux::prelude::*;
 
 use components::{
-    CandidatesPanel, DismissButton, DismissablePanel, HistoryHalflife, ModeSelect, Selection,
+    CandidatesPanel, DismissButton, DismissablePanel, HistoryPanel, ModeSelect, Selection,
     SimulationPanel,
 };
 //use nextspeaker::DEFAULT_HALFLIFE;
@@ -102,9 +102,12 @@ pub fn App(_props: &AppProps) -> Html {
                 <DismissablePanel dismiss={dismiss} children={inner} />
             }
         }
-        _ => {
+        Mode::HistoryView => {
+            let inner = html! {
+                <HistoryPanel />
+            };
             html! {
-                <DismissablePanel dismiss={dismiss} children={html!{<p>{"hello not main"}</p>}} />
+                <DismissablePanel dismiss={dismiss} children={inner} />
             }
         }
     };

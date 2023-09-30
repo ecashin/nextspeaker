@@ -140,6 +140,22 @@ pub fn HistoryHalflife(props: &HistoryHalflifeProps) -> Html {
     }
 }
 
+#[derive(Properties, PartialEq)]
+pub struct HistoryPanelProps {}
+
+#[styled_component]
+pub fn HistoryPanel(props: &HistoryPanelProps) -> Html {
+    let (history, history_dispatch) = use_store::<state::History>();
+    let oninput = history_dispatch.reduce_mut_callback_with(|history, e: InputEvent| {
+        let input: HtmlTextAreaElement = e.target_unchecked_into::<HtmlTextAreaElement>();
+        history.value = from_lines(&input.value());
+    });
+    let content = history.value.join("\n");
+    html! {
+        <Text heading={"history"} text={content} {oninput} />
+    }
+}
+
 fn from_lines(text: &str) -> Vec<String> {
     text.lines()
         .filter(|i| !i.is_empty())
