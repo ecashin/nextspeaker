@@ -3,28 +3,42 @@ use yew::prelude::*;
 
 use crate::N_SIM;
 
-#[derive(Properties, PartialEq)]
-pub struct SimulationPanelProps {
+#[derive(Properties, Debug, PartialEq)]
+pub struct DismissablePanelProps {
     pub dismiss: Callback<MouseEvent>,
-    pub simulate: Callback<MouseEvent>,
-    pub results: Option<Vec<(String, u64)>>,
+    #[prop_or_default]
+    pub children: Html,
 }
 
 #[styled_component]
-pub fn SimulationPanel(props: &SimulationPanelProps) -> Html {
+pub fn DismissablePanel(props: &DismissablePanelProps) -> Html {
     html! {
         <div class={css!("display: flex; background-color: lightgray; flex-direction: column;")}>
             <div class={css!("display: flex; flex-flow: row-reverse;")}>
                 <DismissButton onclick={props.dismiss.clone()} />
                 <div class={css!("flex: 1;")} />
             </div>
-            <div><h2>{"Simulation of Next Choice"}</h2></div>
+            {props.children.clone()}
+        </div>
+    }
+}
+
+#[derive(Properties, PartialEq)]
+pub struct SimulationPanelProps {}
+
+#[styled_component]
+pub fn SimulationPanel(_props: &SimulationPanelProps) -> Html {
+    /*
             <div>
                 <button onclick={props.simulate.clone()}>
                     {format!("run simulation {N_SIM} times")}
                 </button>
                 <SimulationResults results={props.results.clone()} />
             </div>
+    */
+    html! {
+        <div>
+            <div><h2>{"Simulation of Next Choice"}</h2></div>
         </div>
     }
 }
