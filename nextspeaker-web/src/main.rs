@@ -9,7 +9,8 @@ use yew::prelude::*;
 use yewdux::prelude::*;
 
 use components::{
-    DismissButton, DismissablePanel, HistoryHalflife, ModeSelect, Selection, SimulationPanel,
+    CandidatesPanel, DismissButton, DismissablePanel, HistoryHalflife, ModeSelect, Selection,
+    SimulationPanel,
 };
 //use nextspeaker::DEFAULT_HALFLIFE;
 use state::AppMode;
@@ -31,14 +32,6 @@ impl Default for Mode {
     fn default() -> Mode {
         Mode::MainView
     }
-}
-
-fn from_lines(text: &str) -> Result<Vec<String>> {
-    Ok(text
-        .lines()
-        .filter(|i| !i.is_empty())
-        .map(|s| s.to_string())
-        .collect())
 }
 
 fn ignore_non_candidates(candidates: &Vec<String>, history: Vec<String>) -> Vec<String> {
@@ -94,8 +87,19 @@ pub fn App(_props: &AppProps) -> Html {
             }
         }
         Mode::SimulationView => {
+            let inner = html! {
+                <SimulationPanel />
+            };
             html! {
-                <DismissablePanel dismiss={dismiss} children={html!{<p>{"hi"}</p>}} />
+                <DismissablePanel dismiss={dismiss} children={inner} />
+            }
+        }
+        Mode::CandidatesView => {
+            let inner = html! {
+                <CandidatesPanel />
+            };
+            html! {
+                <DismissablePanel dismiss={dismiss} children={inner} />
             }
         }
         _ => {

@@ -1,6 +1,9 @@
 use stylist::yew::styled_component;
+use web_sys::HtmlTextAreaElement;
 use yew::prelude::*;
+use yewdux::prelude::*;
 
+use crate::state;
 use crate::N_SIM;
 
 #[derive(Properties, Debug, PartialEq)]
@@ -137,6 +140,29 @@ pub fn HistoryHalflife(props: &HistoryHalflifeProps) -> Html {
     }
 }
 
+fn from_lines(text: &str) -> Vec<String> {
+    text.lines()
+        .filter(|i| !i.is_empty())
+        .map(|s| s.to_string())
+        .collect()
+}
+
+#[derive(Properties, PartialEq)]
+pub struct CandidatesPanelProps {}
+
+#[styled_component]
+pub fn CandidatesPanel(props: &CandidatesPanelProps) -> Html {
+    let (candidates, dispatch) = use_store::<state::Candidates>();
+    let oninput = dispatch.reduce_mut_callback_with(|candidates, e: InputEvent| {
+        let input: HtmlTextAreaElement = e.target_unchecked_into::<HtmlTextAreaElement>();
+        candidates.value = from_lines(&input.value());
+    });
+    let content = candidates.value.join("\n");
+    html! {
+        <Text heading={"candidates"} text={content} {oninput} />
+    }
+}
+
 #[derive(Properties, PartialEq)]
 pub struct DismissButtonProps {
     pub onclick: Callback<MouseEvent>,
@@ -149,24 +175,6 @@ pub fn DismissButton(props: &DismissButtonProps) -> Html {
             class={css!("color: red; justify-self: right; align-self: start; height: 1.6rem;")}
             onclick={props.onclick.clone()}
         >{"X"}</button>
-    }
-}
-
-#[derive(Properties, PartialEq)]
-pub struct DismissableTextProps {
-    pub heading: String,
-    pub oninput: Callback<InputEvent>,
-    pub dismiss: Callback<MouseEvent>,
-    pub text: String,
-}
-
-#[styled_component]
-pub fn DismissableText(props: &DismissableTextProps) -> Html {
-    html! {
-        <div class={css!("background-color: lightgray; display: grid; width: 90%; padding: 1rem; grid-template-columns: 80% 20%;")}>
-            <Text heading={props.heading.clone()} text={props.text.clone()} oninput={props.oninput.clone()}></Text>
-            <DismissButton onclick={props.dismiss.clone()}></DismissButton>
-        </div>
     }
 }
 
