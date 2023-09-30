@@ -1,5 +1,5 @@
 use stylist::yew::styled_component;
-use web_sys::HtmlTextAreaElement;
+use web_sys::{HtmlInputElement, HtmlTextAreaElement};
 use yew::prelude::*;
 use yewdux::prelude::*;
 
@@ -118,23 +118,40 @@ pub fn SimulationResults(props: &SimulationResultsProps) -> Html {
 }
 
 #[derive(Properties, PartialEq)]
-pub struct HistoryHalflifeProps {
-    pub oninput: Callback<InputEvent>,
-    pub value: f64,
-}
+pub struct HistoryHalflifeProps {}
 
 #[styled_component]
-pub fn HistoryHalflife(props: &HistoryHalflifeProps) -> Html {
-    let value = props.value.to_string();
+pub fn HistoryHalflife(_props: &HistoryHalflifeProps) -> Html {
+    let (hhl, dispatch) = use_store::<state::HistoryHalflife>();
+    let oninput_numerator = dispatch.reduce_mut_callback_with(|hhl, e: InputEvent| {
+        let input: HtmlInputElement = e.target_unchecked_into::<HtmlInputElement>();
+        if let Ok(num) = input.value().parse::<i64>() {
+            hhl.numerator = num;
+        }
+    });
+    let oninput_denominator = dispatch.reduce_mut_callback_with(|hhl, e: InputEvent| {
+        let input: HtmlInputElement = e.target_unchecked_into::<HtmlInputElement>();
+        if let Ok(denom) = input.value().parse::<i64>() {
+            hhl.denominator = if denom == 0 { 1 } else { denom };
+        }
+    });
     html! {
         <div>
-            <label for={"hhl2die4"}>{"History halflife:"}</label>
+            <label for={"hhl2die4"}>{"History halflife numerator:"}</label>
             <input
                 type={"number"}
                 id={"hhl2die4"}
-                value={value}
-                step={"any"}
-                oninput={props.oninput.clone()}
+                value={hhl.numerator.to_string()}
+                min={"1"}
+                oninput={oninput_numerator}
+            />
+            <label for={"hhl2live4"}>{"History halflife denominator:"}</label>
+            <input
+                type={"number"}
+                id={"hhl2live4"}
+                value={hhl.denominator.to_string()}
+                min={"1"}
+                oninput={oninput_denominator}
             />
         </div>
     }
@@ -144,7 +161,7 @@ pub fn HistoryHalflife(props: &HistoryHalflifeProps) -> Html {
 pub struct HistoryPanelProps {}
 
 #[styled_component]
-pub fn HistoryPanel(props: &HistoryPanelProps) -> Html {
+pub fn HistoryPanel(_props: &HistoryPanelProps) -> Html {
     let (history, history_dispatch) = use_store::<state::History>();
     let oninput = history_dispatch.reduce_mut_callback_with(|history, e: InputEvent| {
         let input: HtmlTextAreaElement = e.target_unchecked_into::<HtmlTextAreaElement>();
@@ -152,7 +169,10 @@ pub fn HistoryPanel(props: &HistoryPanelProps) -> Html {
     });
     let content = history.value.join("\n");
     html! {
-        <Text heading={"history"} text={content} {oninput} />
+        <div>
+            <Text heading={"history"} text={content} {oninput} />
+            <HistoryHalflife />
+        </div>
     }
 }
 
@@ -167,7 +187,7 @@ fn from_lines(text: &str) -> Vec<String> {
 pub struct CandidatesPanelProps {}
 
 #[styled_component]
-pub fn CandidatesPanel(props: &CandidatesPanelProps) -> Html {
+pub fn CandidatesPanel(_props: &CandidatesPanelProps) -> Html {
     let (candidates, dispatch) = use_store::<state::Candidates>();
     let oninput = dispatch.reduce_mut_callback_with(|candidates, e: InputEvent| {
         let input: HtmlTextAreaElement = e.target_unchecked_into::<HtmlTextAreaElement>();
