@@ -1,18 +1,14 @@
 use std::collections::{HashMap, HashSet};
 
 use anyhow::Result;
-use gloo_console::log;
 use stylist::yew::styled_component;
-use wasm_bindgen::JsValue;
-//use web_sys::{HtmlInputElement, HtmlTextAreaElement};
 use yew::prelude::*;
 use yewdux::prelude::*;
 
 use components::{
-    CandidatesPanel, DismissButton, DismissablePanel, HistoryPanel, ModeSelect, Selection,
-    SimulationPanel,
+    CandidatesPanel, ChooseButton, DismissButton, DismissablePanel, HistoryPanel, ModeSelect,
+    Selection, SimulationPanel,
 };
-//use nextspeaker::DEFAULT_HALFLIFE;
 use state::AppMode;
 
 mod components;
@@ -32,18 +28,6 @@ impl Default for Mode {
     fn default() -> Mode {
         Mode::MainView
     }
-}
-
-fn ignore_non_candidates(candidates: &Vec<String>, history: Vec<String>) -> Vec<String> {
-    log!(JsValue::from(&format!("{:?}", candidates)));
-    let candidates: HashSet<_> = candidates.iter().collect();
-    log!(JsValue::from(&format!("{:?}", &history)));
-    let history = history
-        .into_iter()
-        .filter(|h| candidates.contains(h))
-        .collect();
-    log!(JsValue::from(&format!("{:?}", &history)));
-    history
 }
 
 fn sorted_counts(counts: HashMap<String, u64>) -> Vec<(String, u64)> {
@@ -83,6 +67,8 @@ pub fn App(_props: &AppProps) -> Html {
             html! {
                 <div>
                     <ModeSelect buttons={mode_select_buttons} />
+                    <ChooseButton />
+                    <Selection />
                 </div>
             }
         }

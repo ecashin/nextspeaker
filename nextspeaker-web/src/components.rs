@@ -1,4 +1,8 @@
+use std::collections::{HashMap, HashSet};
+
+use gloo_console::log;
 use stylist::yew::styled_component;
+use wasm_bindgen::JsValue;
 use web_sys::{HtmlInputElement, HtmlTextAreaElement};
 use yew::prelude::*;
 use yewdux::prelude::*;
@@ -26,7 +30,51 @@ pub fn DismissablePanel(props: &DismissablePanelProps) -> Html {
     }
 }
 
+fn ignore_non_candidates(candidates: &Vec<String>, history: &Vec<String>) -> Vec<String> {
+    log!(JsValue::from(&format!("{:?}", candidates)));
+    let candidates: HashSet<_> = candidates.iter().collect();
+    log!(JsValue::from(&format!("{:?}", &history)));
+    let history = history
+        .into_iter()
+        .filter(|h| candidates.contains(h))
+        .cloned()
+        .collect();
+    log!(JsValue::from(&format!("{:?}", &history)));
+    history
+}
+
 #[derive(Properties, PartialEq)]
+pub struct ChooseButtonProps {}
+
+#[styled_component]
+pub fn ChooseButton(_props: &ChooseButtonProps) -> Html {
+    let selected_dispatch = Dispatch::<state::Selected>::new();
+    let candidates = Dispatch::<state::Candidates>::new().get();
+    let (history, history_dispatch) = use_store::<state::History>();
+    let history_halflife = {
+        let hh = Dispatch::<state::HistoryHalflife>::new().get();
+        (hh.numerator as f64) / (hh.denominator as f64)
+    };
+    log!(JsValue::from(&format!(
+        "history_halflife: {}",
+        history_halflife
+    )));
+    let onclick = selected_dispatch.reduce_mut_callback(move |selected| {
+        if !candidates.value.is_empty() {
+            let history = ignore_non_candidates(&candidates.value, &history.value);
+            let new_selection =
+                nextspeaker::choose(&candidates.value, &history, history_halflife).unwrap();
+            history_dispatch.reduce_mut(|h| h.value.push(new_selection.clone()));
+            selected.value = new_selection;
+        }
+    });
+    html! {
+        <button {onclick}>{"choose"}</button>
+    }
+}
+
+#[derive(Properties, PartialEq)]
+
 pub struct SimulationPanelProps {}
 
 #[styled_component]
@@ -246,14 +294,13 @@ pub fn Text(props: &TextProps) -> Html {
 }
 
 #[derive(Properties, PartialEq)]
-pub struct SelectionProps {
-    pub text: Option<String>,
-}
+pub struct SelectionProps {}
 
 #[function_component]
 pub fn Selection(props: &SelectionProps) -> Html {
-    if let Some(s) = &props.text {
-        let text = format!("selection: {s}");
+    let (selection, _) = use_store::<state::Selected>();
+    if !selection.value.is_empty() {
+        let text = format!("selection: {}", &selection.value);
         html! {
             <div>
                 <p>{text}</p>
