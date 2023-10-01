@@ -1,30 +1,92 @@
-use stylist::yew::styled_component;
-use yew::prelude::*;
+use std::collections::HashSet;
 
+use gloo_console::log;
+use stylist::yew::styled_component;
+use wasm_bindgen::JsValue;
+use web_sys::{HtmlInputElement, HtmlTextAreaElement};
+use yew::prelude::*;
+use yew_router::prelude::*;
+use yewdux::prelude::*;
+
+use crate::simulate;
+use crate::state;
+use crate::Mode;
 use crate::N_SIM;
 
-#[derive(Properties, PartialEq)]
-pub struct SimulationPanelProps {
-    pub dismiss: Callback<MouseEvent>,
-    pub simulate: Callback<MouseEvent>,
-    pub results: Option<Vec<(String, u64)>>,
+#[derive(Properties, Debug, PartialEq)]
+pub struct DismissablePanelProps {
+    #[prop_or_default]
+    pub children: Html,
 }
 
 #[styled_component]
-pub fn SimulationPanel(props: &SimulationPanelProps) -> Html {
+pub fn DismissablePanel(props: &DismissablePanelProps) -> Html {
+    let navigator = use_navigator().unwrap();
+    let dismiss = Callback::from(move |_| navigator.push(&Mode::MainView));
     html! {
         <div class={css!("display: flex; background-color: lightgray; flex-direction: column;")}>
             <div class={css!("display: flex; flex-flow: row-reverse;")}>
-                <DismissButton onclick={props.dismiss.clone()} />
+                <DismissButton onclick={dismiss} />
                 <div class={css!("flex: 1;")} />
             </div>
-            <div><h2>{"Simulation of Next Choice"}</h2></div>
-            <div>
-                <button onclick={props.simulate.clone()}>
-                    {format!("run simulation {N_SIM} times")}
-                </button>
-                <SimulationResults results={props.results.clone()} />
-            </div>
+            {props.children.clone()}
+        </div>
+    }
+}
+
+fn ignore_non_candidates(candidates: &Vec<String>, history: &Vec<String>) -> Vec<String> {
+    log!(JsValue::from(&format!("{:?}", candidates)));
+    let candidates: HashSet<_> = candidates.iter().collect();
+    log!(JsValue::from(&format!("{:?}", &history)));
+    let history = history
+        .into_iter()
+        .filter(|h| candidates.contains(h))
+        .cloned()
+        .collect();
+    log!(JsValue::from(&format!("{:?}", &history)));
+    history
+}
+
+#[derive(Properties, PartialEq)]
+pub struct ChooseButtonProps {}
+
+#[styled_component]
+pub fn ChooseButton(_props: &ChooseButtonProps) -> Html {
+    let selected_dispatch = Dispatch::<state::Selected>::new();
+    let candidates = Dispatch::<state::Candidates>::new().get();
+    let (history, history_dispatch) = use_store::<state::History>();
+    let history_halflife = {
+        let hh = Dispatch::<state::HistoryHalflife>::new().get();
+        hh.into_f64()
+    };
+    log!(JsValue::from(&format!(
+        "history_halflife: {}",
+        history_halflife
+    )));
+    let onclick = selected_dispatch.reduce_mut_callback(move |selected| {
+        if !candidates.value.is_empty() {
+            let history = ignore_non_candidates(&candidates.value, &history.value);
+            let new_selection =
+                nextspeaker::choose(&candidates.value, &history, history_halflife).unwrap();
+            history_dispatch.reduce_mut(|h| h.value.push(new_selection.clone()));
+            selected.value = new_selection;
+        }
+    });
+    html! {
+        <button {onclick}>{"choose"}</button>
+    }
+}
+
+#[derive(Properties, PartialEq)]
+
+pub struct SimulationPanelProps {}
+
+#[styled_component]
+pub fn SimulationPanel(_props: &SimulationPanelProps) -> Html {
+    html! {
+        <div>
+            <h2>{"Simulation of Next Choice"}</h2>
+            <SimulationResults />
         </div>
     }
 }
@@ -68,18 +130,17 @@ pub fn SimulationBar(props: &SimulationBarProps) -> Html {
 }
 
 #[derive(Properties, PartialEq)]
-pub struct SimulationResultsProps {
-    pub results: Option<Vec<(String, u64)>>,
-}
+pub struct SimulationResultsProps {}
 
 #[styled_component]
-pub fn SimulationResults(props: &SimulationResultsProps) -> Html {
-    if let Some(results) = &props.results {
+pub fn SimulationResults(_props: &SimulationResultsProps) -> Html {
+    let (results, _) = use_store::<state::SimulationResults>();
+    if let Some(results) = &results.value {
         html! {
             <table>
                 <tr><th>{"candidate"}</th><th width={"80%"}>{"selection count"}</th></tr>
                 {
-                    results.into_iter().map(|(candidate, count)| {
+                    results.iter().map(|(candidate, count)| {
                         html! {
                             <SimulationBar
                                 candidate={candidate.clone()}
@@ -101,25 +162,84 @@ pub fn SimulationResults(props: &SimulationResultsProps) -> Html {
 }
 
 #[derive(Properties, PartialEq)]
-pub struct HistoryHalflifeProps {
-    pub oninput: Callback<InputEvent>,
-    pub value: f64,
-}
+pub struct HistoryHalflifeProps {}
 
 #[styled_component]
-pub fn HistoryHalflife(props: &HistoryHalflifeProps) -> Html {
-    let value = props.value.to_string();
+pub fn HistoryHalflife(_props: &HistoryHalflifeProps) -> Html {
+    let (hhl, dispatch) = use_store::<state::HistoryHalflife>();
+    let oninput_numerator = dispatch.reduce_mut_callback_with(|hhl, e: InputEvent| {
+        let input: HtmlInputElement = e.target_unchecked_into::<HtmlInputElement>();
+        if let Ok(num) = input.value().parse::<i64>() {
+            hhl.numerator = num;
+        }
+    });
+    let oninput_denominator = dispatch.reduce_mut_callback_with(|hhl, e: InputEvent| {
+        let input: HtmlInputElement = e.target_unchecked_into::<HtmlInputElement>();
+        if let Ok(denom) = input.value().parse::<i64>() {
+            hhl.denominator = if denom == 0 { 1 } else { denom };
+        }
+    });
     html! {
         <div>
-            <label for={"hhl2die4"}>{"History halflife:"}</label>
+            <label for={"hhl2die4"}>{"History halflife numerator:"}</label>
             <input
                 type={"number"}
                 id={"hhl2die4"}
-                value={value}
-                step={"any"}
-                oninput={props.oninput.clone()}
+                value={hhl.numerator.to_string()}
+                min={"1"}
+                oninput={oninput_numerator}
+            />
+            <label for={"hhl2live4"}>{"History halflife denominator:"}</label>
+            <input
+                type={"number"}
+                id={"hhl2live4"}
+                value={hhl.denominator.to_string()}
+                min={"1"}
+                oninput={oninput_denominator}
             />
         </div>
+    }
+}
+
+#[derive(Properties, PartialEq)]
+pub struct HistoryPanelProps {}
+
+#[styled_component]
+pub fn HistoryPanel(_props: &HistoryPanelProps) -> Html {
+    let (history, history_dispatch) = use_store::<state::History>();
+    let oninput = history_dispatch.reduce_mut_callback_with(|history, e: InputEvent| {
+        let input: HtmlTextAreaElement = e.target_unchecked_into::<HtmlTextAreaElement>();
+        history.value = from_lines(&input.value());
+    });
+    let content = history.value.join("\n");
+    html! {
+        <div>
+            <Text heading={"history"} text={content} {oninput} />
+            <HistoryHalflife />
+        </div>
+    }
+}
+
+fn from_lines(text: &str) -> Vec<String> {
+    text.lines()
+        .filter(|i| !i.is_empty())
+        .map(|s| s.to_string())
+        .collect()
+}
+
+#[derive(Properties, PartialEq)]
+pub struct CandidatesPanelProps {}
+
+#[styled_component]
+pub fn CandidatesPanel(_props: &CandidatesPanelProps) -> Html {
+    let (candidates, dispatch) = use_store::<state::Candidates>();
+    let oninput = dispatch.reduce_mut_callback_with(|candidates, e: InputEvent| {
+        let input: HtmlTextAreaElement = e.target_unchecked_into::<HtmlTextAreaElement>();
+        candidates.value = from_lines(&input.value());
+    });
+    let content = candidates.value.join("\n");
+    html! {
+        <Text heading={"candidates"} text={content} {oninput} />
     }
 }
 
@@ -139,33 +259,37 @@ pub fn DismissButton(props: &DismissButtonProps) -> Html {
 }
 
 #[derive(Properties, PartialEq)]
-pub struct DismissableTextProps {
-    pub heading: String,
-    pub oninput: Callback<InputEvent>,
-    pub dismiss: Callback<MouseEvent>,
-    pub text: String,
-}
+pub struct ModeSelectProps {}
 
 #[styled_component]
-pub fn DismissableText(props: &DismissableTextProps) -> Html {
-    html! {
-        <div class={css!("background-color: lightgray; display: grid; width: 90%; padding: 1rem; grid-template-columns: 80% 20%;")}>
-            <Text heading={props.heading.clone()} text={props.text.clone()} oninput={props.oninput.clone()}></Text>
-            <DismissButton onclick={props.dismiss.clone()}></DismissButton>
+pub fn ModeSelect(_props: &ModeSelectProps) -> Html {
+    let navigator = use_navigator().unwrap();
+    let candidates = Callback::from(move |_| navigator.push(&Mode::CandidatesView));
+    let navigator = use_navigator().unwrap();
+    let history = Callback::from(move |_| navigator.push(&Mode::HistoryView));
+    let navigator = use_navigator().unwrap();
+    let simulation = Callback::from(move |_| {
+        yew::platform::spawn_local(async {
+            log!(JsValue::from("run sim thing"));
+            let candidates = Dispatch::<state::Candidates>::new().get();
+            let history = Dispatch::<state::History>::new().get();
+            let history_halflife = Dispatch::<state::HistoryHalflife>::new().get().into_f64();
+            let results = simulate::run(&candidates.value, &history.value, history_halflife);
+            Dispatch::<state::SimulationResults>::new()
+                .set(state::SimulationResults { value: results });
+        });
+        navigator.push(&Mode::SimulationView);
+    });
+    let mode_select_buttons = html! {
+        <div>
+            <button onclick={candidates}>{"candidates"}</button>
+            <button onclick={history}>{"history"}</button>
+            <button onclick={simulation}>{"simulate"}</button>
         </div>
-    }
-}
-
-#[derive(Properties, PartialEq)]
-pub struct ModeSelectProps {
-    pub buttons: Html,
-}
-
-#[styled_component]
-pub fn ModeSelect(props: &ModeSelectProps) -> Html {
+    };
     html! {
         <div class={css!("width: 50%; padding: 3rem; margin: 1rem;")}>
-            { props.buttons.clone() }
+            { mode_select_buttons }
         </div>
     }
 }
@@ -188,14 +312,13 @@ pub fn Text(props: &TextProps) -> Html {
 }
 
 #[derive(Properties, PartialEq)]
-pub struct SelectionProps {
-    pub text: Option<String>,
-}
+pub struct SelectionProps {}
 
 #[function_component]
-pub fn Selection(props: &SelectionProps) -> Html {
-    if let Some(s) = &props.text {
-        let text = format!("selection: {s}");
+pub fn Selection(_props: &SelectionProps) -> Html {
+    let (selection, _) = use_store::<state::Selected>();
+    if !selection.value.is_empty() {
+        let text = format!("selection: {}", &selection.value);
         html! {
             <div>
                 <p>{text}</p>
