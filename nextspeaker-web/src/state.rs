@@ -1,11 +1,6 @@
 use serde::{Deserialize, Serialize};
 use yewdux::prelude::*;
 
-#[derive(Debug, Default, Clone, PartialEq, Eq, Store)]
-pub struct AppMode {
-    pub value: crate::Mode,
-}
-
 #[derive(Debug, Default, Clone, Deserialize, PartialEq, Eq, Serialize, Store)]
 #[store(storage = "local")]
 pub struct Candidates {

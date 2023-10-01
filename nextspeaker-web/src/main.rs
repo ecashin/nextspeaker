@@ -1,14 +1,11 @@
-use gloo_console::log;
 use stylist::yew::styled_component;
-use wasm_bindgen::JsValue;
 use yew::prelude::*;
-use yewdux::prelude::*;
+use yew_router::prelude::*;
 
 use components::{
     CandidatesPanel, ChooseButton, DismissablePanel, HistoryPanel, ModeSelect, Selection,
     SimulationPanel,
 };
-use state::AppMode;
 
 mod components;
 mod simulate;
@@ -16,11 +13,15 @@ mod state;
 
 const N_SIM: u64 = 1000;
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Routable)]
 pub enum Mode {
+    #[at("/candidates")]
     CandidatesView,
+    #[at("/history")]
     HistoryView,
+    #[at("/")]
     MainView,
+    #[at("/simulation")]
     SimulationView,
 }
 
@@ -35,34 +36,20 @@ pub struct AppProps {}
 
 #[styled_component]
 pub fn App(_props: &AppProps) -> Html {
-    let (mode, mode_dispatch) = use_store::<AppMode>();
-    let dismiss = mode_dispatch.reduce_mut_callback(|mode| mode.value = Mode::MainView);
-    let candidates = mode_dispatch.reduce_mut_callback(|mode| mode.value = Mode::CandidatesView);
-    let history = mode_dispatch.reduce_mut_callback(|mode| mode.value = Mode::HistoryView);
-    let simulation = mode_dispatch.reduce_mut_callback(|mode| {
-        yew::platform::spawn_local(async {
-            log!(JsValue::from("run sim thing"));
-            let candidates = Dispatch::<state::Candidates>::new().get();
-            let history = Dispatch::<state::History>::new().get();
-            let history_halflife = Dispatch::<state::HistoryHalflife>::new().get().into_f64();
-            let results = simulate::run(&candidates.value, &history.value, history_halflife);
-            Dispatch::<state::SimulationResults>::new()
-                .set(state::SimulationResults { value: results });
-        });
-        mode.value = Mode::SimulationView;
-    });
-    let mode_select_buttons = html! {
-        <div>
-            <button onclick={candidates}>{"candidates"}</button>
-            <button onclick={history}>{"history"}</button>
-            <button onclick={simulation}>{"simulate"}</button>
-        </div>
-    };
-    let inner = match mode.value {
+    html! {
+        <BrowserRouter>
+            <h2>{"Rock 'n Roll!"}</h2>
+            <Switch<Mode> render={switch} />
+        </BrowserRouter>
+    }
+}
+
+fn switch(mode: Mode) -> Html {
+    match mode {
         Mode::MainView => {
             html! {
                 <div>
-                    <ModeSelect buttons={mode_select_buttons} />
+                    <ModeSelect />
                     <ChooseButton />
                     <Selection />
                 </div>
@@ -73,7 +60,7 @@ pub fn App(_props: &AppProps) -> Html {
                 <SimulationPanel />
             };
             html! {
-                <DismissablePanel dismiss={dismiss} children={inner} />
+                <DismissablePanel children={inner} />
             }
         }
         Mode::CandidatesView => {
@@ -81,7 +68,7 @@ pub fn App(_props: &AppProps) -> Html {
                 <CandidatesPanel />
             };
             html! {
-                <DismissablePanel dismiss={dismiss} children={inner} />
+                <DismissablePanel children={inner} />
             }
         }
         Mode::HistoryView => {
@@ -89,15 +76,9 @@ pub fn App(_props: &AppProps) -> Html {
                 <HistoryPanel />
             };
             html! {
-                <DismissablePanel dismiss={dismiss} children={inner} />
+                <DismissablePanel children={inner} />
             }
         }
-    };
-    html! {
-        <div>
-            <h2>{"Rock 'n Roll!"}</h2>
-            {inner}
-        </div>
     }
 }
 
