@@ -25,6 +25,12 @@ pub struct HistoryHalflife {
     pub denominator: i64,
 }
 
+impl HistoryHalflife {
+    pub fn into_f64(&self) -> f64 {
+        (self.numerator as f64) / (self.denominator as f64)
+    }
+}
+
 impl Default for HistoryHalflife {
     fn default() -> Self {
         Self {

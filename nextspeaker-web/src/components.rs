@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 use gloo_console::log;
 use stylist::yew::styled_component;
@@ -53,7 +53,7 @@ pub fn ChooseButton(_props: &ChooseButtonProps) -> Html {
     let (history, history_dispatch) = use_store::<state::History>();
     let history_halflife = {
         let hh = Dispatch::<state::HistoryHalflife>::new().get();
-        (hh.numerator as f64) / (hh.denominator as f64)
+        hh.into_f64()
     };
     log!(JsValue::from(&format!(
         "history_halflife: {}",
@@ -79,17 +79,10 @@ pub struct SimulationPanelProps {}
 
 #[styled_component]
 pub fn SimulationPanel(_props: &SimulationPanelProps) -> Html {
-    /*
-            <div>
-                <button onclick={props.simulate.clone()}>
-                    {format!("run simulation {N_SIM} times")}
-                </button>
-                <SimulationResults results={props.results.clone()} />
-            </div>
-    */
     html! {
         <div>
-            <div><h2>{"Simulation of Next Choice"}</h2></div>
+            <h2>{"Simulation of Next Choice"}</h2>
+            <SimulationResults />
         </div>
     }
 }
@@ -133,18 +126,17 @@ pub fn SimulationBar(props: &SimulationBarProps) -> Html {
 }
 
 #[derive(Properties, PartialEq)]
-pub struct SimulationResultsProps {
-    pub results: Option<Vec<(String, u64)>>,
-}
+pub struct SimulationResultsProps {}
 
 #[styled_component]
-pub fn SimulationResults(props: &SimulationResultsProps) -> Html {
-    if let Some(results) = &props.results {
+pub fn SimulationResults(_props: &SimulationResultsProps) -> Html {
+    let (results, _) = use_store::<state::SimulationResults>();
+    if let Some(results) = &results.value {
         html! {
             <table>
                 <tr><th>{"candidate"}</th><th width={"80%"}>{"selection count"}</th></tr>
                 {
-                    results.into_iter().map(|(candidate, count)| {
+                    results.iter().map(|(candidate, count)| {
                         html! {
                             <SimulationBar
                                 candidate={candidate.clone()}
@@ -297,7 +289,7 @@ pub fn Text(props: &TextProps) -> Html {
 pub struct SelectionProps {}
 
 #[function_component]
-pub fn Selection(props: &SelectionProps) -> Html {
+pub fn Selection(_props: &SelectionProps) -> Html {
     let (selection, _) = use_store::<state::Selected>();
     if !selection.value.is_empty() {
         let text = format!("selection: {}", &selection.value);

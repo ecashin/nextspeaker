@@ -1,17 +1,17 @@
-use std::collections::{HashMap, HashSet};
-
-use anyhow::Result;
+use gloo_console::log;
 use stylist::yew::styled_component;
+use wasm_bindgen::JsValue;
 use yew::prelude::*;
 use yewdux::prelude::*;
 
 use components::{
-    CandidatesPanel, ChooseButton, DismissButton, DismissablePanel, HistoryPanel, ModeSelect,
-    Selection, SimulationPanel,
+    CandidatesPanel, ChooseButton, DismissablePanel, HistoryPanel, ModeSelect, Selection,
+    SimulationPanel,
 };
 use state::AppMode;
 
 mod components;
+mod simulate;
 mod state;
 
 const N_SIM: u64 = 1000;
@@ -30,21 +30,6 @@ impl Default for Mode {
     }
 }
 
-fn sorted_counts(counts: HashMap<String, u64>) -> Vec<(String, u64)> {
-    let mut count_vec = counts.into_iter().collect::<Vec<_>>();
-    count_vec.sort_by(|(n1, _), (n2, _)| n1.cmp(n2));
-    count_vec
-}
-
-fn history_text_append(history_text: &str, new_selection: &str) -> String {
-    let join = if history_text.is_empty() || history_text.ends_with('\n') {
-        ""
-    } else {
-        "\n"
-    };
-    format!("{history_text}{join}{new_selection}")
-}
-
 #[derive(Default, Properties, PartialEq)]
 pub struct AppProps {}
 
@@ -54,7 +39,34 @@ pub fn App(_props: &AppProps) -> Html {
     let dismiss = mode_dispatch.reduce_mut_callback(|mode| mode.value = Mode::MainView);
     let candidates = mode_dispatch.reduce_mut_callback(|mode| mode.value = Mode::CandidatesView);
     let history = mode_dispatch.reduce_mut_callback(|mode| mode.value = Mode::HistoryView);
-    let simulation = mode_dispatch.reduce_mut_callback(|mode| mode.value = Mode::SimulationView);
+    let simulation = mode_dispatch.reduce_mut_callback(|mode| {
+        yew::platform::spawn_local(async {
+            log!(JsValue::from("run sim thing"));
+            let candidates = Dispatch::<state::Candidates>::new().get();
+            log!(JsValue::from(&format!(
+                "run sim thing candidates: {:?}",
+                &candidates.value
+            )));
+            let history = Dispatch::<state::History>::new().get();
+            log!(JsValue::from(&format!(
+                "run sim thing history: {:?}",
+                &history.value
+            )));
+            let history_halflife = Dispatch::<state::HistoryHalflife>::new().get().into_f64();
+            log!(JsValue::from(&format!(
+                "run sim thing history: {}",
+                history_halflife
+            )));
+            let results = simulate::run(&candidates.value, &history.value, history_halflife);
+            log!(JsValue::from(&format!(
+                "run sim thing results: {:?}",
+                &results
+            )));
+            Dispatch::<state::SimulationResults>::new()
+                .set(state::SimulationResults { value: results });
+        });
+        mode.value = Mode::SimulationView;
+    });
     let mode_select_buttons = html! {
         <div>
             <button onclick={candidates}>{"candidates"}</button>
