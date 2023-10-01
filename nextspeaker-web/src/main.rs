@@ -43,25 +43,9 @@ pub fn App(_props: &AppProps) -> Html {
         yew::platform::spawn_local(async {
             log!(JsValue::from("run sim thing"));
             let candidates = Dispatch::<state::Candidates>::new().get();
-            log!(JsValue::from(&format!(
-                "run sim thing candidates: {:?}",
-                &candidates.value
-            )));
             let history = Dispatch::<state::History>::new().get();
-            log!(JsValue::from(&format!(
-                "run sim thing history: {:?}",
-                &history.value
-            )));
             let history_halflife = Dispatch::<state::HistoryHalflife>::new().get().into_f64();
-            log!(JsValue::from(&format!(
-                "run sim thing history: {}",
-                history_halflife
-            )));
             let results = simulate::run(&candidates.value, &history.value, history_halflife);
-            log!(JsValue::from(&format!(
-                "run sim thing results: {:?}",
-                &results
-            )));
             Dispatch::<state::SimulationResults>::new()
                 .set(state::SimulationResults { value: results });
         });
