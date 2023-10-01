@@ -5,28 +5,24 @@ use stylist::yew::styled_component;
 use wasm_bindgen::JsValue;
 use web_sys::{HtmlInputElement, HtmlTextAreaElement};
 use yew::prelude::*;
-use yew_router::prelude::*;
 use yewdux::prelude::*;
 
-use crate::simulate;
 use crate::state;
-use crate::Mode;
 use crate::N_SIM;
 
 #[derive(Properties, Debug, PartialEq)]
 pub struct DismissablePanelProps {
+    pub dismiss: Callback<MouseEvent>,
     #[prop_or_default]
     pub children: Html,
 }
 
 #[styled_component]
 pub fn DismissablePanel(props: &DismissablePanelProps) -> Html {
-    let navigator = use_navigator().unwrap();
-    let dismiss = Callback::from(move |_| navigator.push(&Mode::MainView));
     html! {
         <div class={css!("display: flex; background-color: lightgray; flex-direction: column;")}>
             <div class={css!("display: flex; flex-flow: row-reverse;")}>
-                <DismissButton onclick={dismiss} />
+                <DismissButton onclick={props.dismiss.clone()} />
                 <div class={css!("flex: 1;")} />
             </div>
             {props.children.clone()}
@@ -259,37 +255,15 @@ pub fn DismissButton(props: &DismissButtonProps) -> Html {
 }
 
 #[derive(Properties, PartialEq)]
-pub struct ModeSelectProps {}
+pub struct ModeSelectProps {
+    pub buttons: Html,
+}
 
 #[styled_component]
-pub fn ModeSelect(_props: &ModeSelectProps) -> Html {
-    let navigator = use_navigator().unwrap();
-    let candidates = Callback::from(move |_| navigator.push(&Mode::CandidatesView));
-    let navigator = use_navigator().unwrap();
-    let history = Callback::from(move |_| navigator.push(&Mode::HistoryView));
-    let navigator = use_navigator().unwrap();
-    let simulation = Callback::from(move |_| {
-        yew::platform::spawn_local(async {
-            log!(JsValue::from("run sim thing"));
-            let candidates = Dispatch::<state::Candidates>::new().get();
-            let history = Dispatch::<state::History>::new().get();
-            let history_halflife = Dispatch::<state::HistoryHalflife>::new().get().into_f64();
-            let results = simulate::run(&candidates.value, &history.value, history_halflife);
-            Dispatch::<state::SimulationResults>::new()
-                .set(state::SimulationResults { value: results });
-        });
-        navigator.push(&Mode::SimulationView);
-    });
-    let mode_select_buttons = html! {
-        <div>
-            <button onclick={candidates}>{"candidates"}</button>
-            <button onclick={history}>{"history"}</button>
-            <button onclick={simulation}>{"simulate"}</button>
-        </div>
-    };
+pub fn ModeSelect(props: &ModeSelectProps) -> Html {
     html! {
         <div class={css!("width: 50%; padding: 3rem; margin: 1rem;")}>
-            { mode_select_buttons }
+            { props.buttons.clone() }
         </div>
     }
 }
