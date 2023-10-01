@@ -15,13 +15,13 @@ const N_SIM: u64 = 1000;
 
 #[derive(Clone, Debug, Eq, PartialEq, Routable)]
 pub enum Mode {
-    #[at("/candidates")]
+    #[at("/nextspeaker/candidates")]
     CandidatesView,
-    #[at("/history")]
+    #[at("/nextspeaker/history")]
     HistoryView,
-    #[at("/")]
+    #[at("/nextspeaker/")]
     MainView,
-    #[at("/simulation")]
+    #[at("/nextspeaker/simulation")]
     SimulationView,
 }
 
