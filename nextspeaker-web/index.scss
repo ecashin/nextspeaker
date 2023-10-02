@@ -1,37 +1,14 @@
-// styling from yew example
-html, body {
-  font-family: sans-serif;
+@charset "utf-8";
+@import "bulma-0.9.4/bulma.sass";
 
-  margin: 1rem;
-  padding: 0;
-
-  background-color: rgb(237, 244, 255);
+body {
+  padding: 1rem;
 }
 
-.content {
-  height: 5rem;
-  width: 40%;
-  border-radius: 4px;
-  box-shadow: 0 0 5px 0  black;
-  background: white;
+.block:not(:last-child) {
+  margin-bottom: 1.5rem;
 }
 
-textarea {
-  width: 30%;
-  height: 5rem;
-}
-
-button {
-  color: white;
-  font-size: larger;
-  background-color: rgb(88, 164, 255);
-  border-radius: 5px;
-  border: none;
-}
-
-.selection-display div {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: x-large;
+table th {
+  padding-right: 2rem;
 }
