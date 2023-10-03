@@ -7,28 +7,10 @@ use web_sys::{HtmlInputElement, HtmlTextAreaElement};
 use yew::prelude::*;
 use yewdux::prelude::*;
 
+use crate::simulate;
 use crate::state;
+use crate::Mode;
 use crate::N_SIM;
-
-#[derive(Properties, Debug, PartialEq)]
-pub struct DismissablePanelProps {
-    pub dismiss: Callback<MouseEvent>,
-    #[prop_or_default]
-    pub children: Html,
-}
-
-#[styled_component]
-pub fn DismissablePanel(props: &DismissablePanelProps) -> Html {
-    html! {
-        <div class={css!("display: flex; background-color: lightgray; flex-direction: column;")}>
-            <div class={css!("display: flex; flex-flow: row-reverse;")}>
-                <DismissButton onclick={props.dismiss.clone()} />
-                <div class={css!("flex: 1;")} />
-            </div>
-            {props.children.clone()}
-        </div>
-    }
-}
 
 fn ignore_non_candidates(candidates: &Vec<String>, history: &Vec<String>) -> Vec<String> {
     log!(JsValue::from(&format!("{:?}", candidates)));
@@ -69,7 +51,7 @@ pub fn ChooseButton(_props: &ChooseButtonProps) -> Html {
         }
     });
     html! {
-        <button {onclick}>{"choose"}</button>
+        <button class={"button is-rounded is-primary"} {onclick}>{"choose"}</button>
     }
 }
 
@@ -80,8 +62,10 @@ pub struct SimulationPanelProps {}
 #[styled_component]
 pub fn SimulationPanel(_props: &SimulationPanelProps) -> Html {
     html! {
-        <div>
-            <h2>{"Simulation of Next Choice"}</h2>
+        <div class="has-background-grey-light">
+            <div class="content">
+                <h2>{"Simulation of Next Choice"}</h2>
+            </div>
             <SimulationResults />
         </div>
     }
@@ -102,24 +86,12 @@ pub fn SimulationBar(props: &SimulationBarProps) -> Html {
         total,
     } = props;
     let pct = 100.0 * (*count as f64 / *total as f64);
-    let pct = format!("{pct}%");
-    let bar_style = css!(
-        min-width: ${pct};
-        box-sizing: border-box;
-        flex: 0 0 auto;
-        color: darkgray;
-        background-color: darkgray;
-    );
+    let pct = format!("{pct}");
     html! {
         <tr key={candidate.clone()}>
             <td>{candidate}</td>
             <td>
-            <div
-                class={css!("background-color: whitesmoke; display: flex; flex-flow: row; width: 80%;")}
-            >
-                <div class={bar_style}>{"|"}</div>
-                <div class={css!("background-color: whitesmoke; flex: 1;")}></div>
-            </div>
+                <progress class="progress" value={pct} max={"100"}>{*count}</progress>
             </td>
         </tr>
     }
@@ -133,8 +105,8 @@ pub fn SimulationResults(_props: &SimulationResultsProps) -> Html {
     let (results, _) = use_store::<state::SimulationResults>();
     if let Some(results) = &results.value {
         html! {
-            <table>
-                <tr><th>{"candidate"}</th><th width={"80%"}>{"selection count"}</th></tr>
+            <table class={"is-striped"}>
+                <tr><th>{"candidate"}</th><th>{"selection count"}</th></tr>
                 {
                     results.iter().map(|(candidate, count)| {
                         html! {
@@ -175,24 +147,32 @@ pub fn HistoryHalflife(_props: &HistoryHalflifeProps) -> Html {
             hhl.denominator = if denom == 0 { 1 } else { denom };
         }
     });
+    let hhl_text = format!("History halflife: {:.2}", hhl.into_f64());
     html! {
-        <div>
-            <label for={"hhl2die4"}>{"History halflife numerator:"}</label>
-            <input
-                type={"number"}
-                id={"hhl2die4"}
-                value={hhl.numerator.to_string()}
-                min={"1"}
-                oninput={oninput_numerator}
-            />
-            <label for={"hhl2live4"}>{"History halflife denominator:"}</label>
-            <input
-                type={"number"}
-                id={"hhl2live4"}
-                value={hhl.denominator.to_string()}
-                min={"1"}
-                oninput={oninput_denominator}
-            />
+        <div class={"content"}>
+            <h3>{hhl_text}</h3>
+            <div class={"columns"}>
+                <div class={"column"}>
+                    <label for={"hhl2die4"}>{"History halflife numerator:"}</label>
+                    <input
+                        type={"number"}
+                        id={"hhl2die4"}
+                        value={hhl.numerator.to_string()}
+                        min={"1"}
+                        oninput={oninput_numerator}
+                    />
+                </div>
+                <div class={"column"}>
+                    <label for={"hhl2live4"}>{"History halflife denominator:"}</label>
+                    <input
+                        type={"number"}
+                        id={"hhl2live4"}
+                        value={hhl.denominator.to_string()}
+                        min={"1"}
+                        oninput={oninput_denominator}
+                    />
+                </div>
+            </div>
         </div>
     }
 }
@@ -240,30 +220,34 @@ pub fn CandidatesPanel(_props: &CandidatesPanelProps) -> Html {
 }
 
 #[derive(Properties, PartialEq)]
-pub struct DismissButtonProps {
-    pub onclick: Callback<MouseEvent>,
-}
+pub struct ModeSelectProps {}
 
 #[styled_component]
-pub fn DismissButton(props: &DismissButtonProps) -> Html {
+pub fn ModeSelect(_props: &ModeSelectProps) -> Html {
+    let (mode, mode_dispatch) = use_store::<state::AppMode>();
+    let go_main = mode_dispatch.reduce_mut_callback(|mode| mode.value = Mode::MainView);
+    let go_candidates = mode_dispatch.reduce_mut_callback(|mode| mode.value = Mode::CandidatesView);
+    let go_history = mode_dispatch.reduce_mut_callback(|mode| mode.value = Mode::HistoryView);
+    let go_simulation = mode_dispatch.reduce_mut_callback(|mode| {
+        yew::platform::spawn_local(async {
+            log!(JsValue::from("run sim thing"));
+            let candidates = Dispatch::<state::Candidates>::new().get();
+            let history = Dispatch::<state::History>::new().get();
+            let history_halflife = Dispatch::<state::HistoryHalflife>::new().get().into_f64();
+            let results = simulate::run(&candidates.value, &history.value, history_halflife);
+            Dispatch::<state::SimulationResults>::new()
+                .set(state::SimulationResults { value: results });
+        });
+        mode.value = Mode::SimulationView;
+    });
     html! {
-        <button
-            class={css!("color: red; justify-self: right; align-self: start; height: 1.6rem;")}
-            onclick={props.onclick.clone()}
-        >{"X"}</button>
-    }
-}
-
-#[derive(Properties, PartialEq)]
-pub struct ModeSelectProps {
-    pub buttons: Html,
-}
-
-#[styled_component]
-pub fn ModeSelect(props: &ModeSelectProps) -> Html {
-    html! {
-        <div class={css!("width: 50%; padding: 3rem; margin: 1rem;")}>
-            { props.buttons.clone() }
+        <div class={"tabs"}>
+            <ul>
+                <li class={if mode.value == Mode::MainView { "is-active" } else { "" }}><a onclick={go_main}>{"Main"}</a></li>
+                <li class={if mode.value == Mode::CandidatesView { "is-active" } else { "" }}><a onclick={go_candidates}>{"Candidates"}</a></li>
+                <li class={if mode.value == Mode::HistoryView { "is-active" } else { "" }}><a onclick={go_history}>{"History"}</a></li>
+                <li class={if mode.value == Mode::SimulationView { "is-active" } else { "" }}><a onclick={go_simulation}>{"Simulation"}</a></li>
+            </ul>
         </div>
     }
 }
@@ -278,8 +262,10 @@ pub struct TextProps {
 #[styled_component]
 pub fn Text(props: &TextProps) -> Html {
     html! {
-        <div class={css!("width: 80%; margin: 3rem; height: 80%;")}>
-            <h3>{props.heading.clone()}</h3>
+        <div>
+            <div class="content">
+                <h3>{props.heading.clone()}</h3>
+            </div>
             <textarea value={props.text.clone()} oninput={props.oninput.clone()}></textarea>
         </div>
     }
@@ -294,7 +280,7 @@ pub fn Selection(_props: &SelectionProps) -> Html {
     if !selection.value.is_empty() {
         let text = format!("selection: {}", &selection.value);
         html! {
-            <div>
+            <div class="content">
                 <p>{text}</p>
             </div>
         }
