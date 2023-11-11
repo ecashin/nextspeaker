@@ -266,7 +266,7 @@ pub fn Text(props: &TextProps) -> Html {
             <div class="content">
                 <h3>{props.heading.clone()}</h3>
             </div>
-            <textarea value={props.text.clone()} oninput={props.oninput.clone()}></textarea>
+            <textarea class={"textarea"} rows={"10"} value={props.text.clone()} oninput={props.oninput.clone()}></textarea>
         </div>
     }
 }
