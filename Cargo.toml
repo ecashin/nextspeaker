@@ -11,4 +11,4 @@ clap = { version = "4.0.9", features = ["derive"] }
 log = "0.4.19"
 rand = "0.8.5"
 rand_distr = "0.4.3"
-simple_logger = "4.2.0"
+simple_logger = { version = "4.2.0", features = ["stderr"] }

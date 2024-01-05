@@ -55,7 +55,8 @@ fn main() -> Result<()> {
     } else {
         let selection = choose(&participants, &history, args.history_halflife)
             .context("choosing participant")?;
-        info!("selection:{selection}");
+        info!("selection:{}", &selection);
+        println!("{}", selection);
     }
     Ok(())
 }
