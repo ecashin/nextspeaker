@@ -1,8 +1,9 @@
 use std::{collections::HashMap, fs, path::Path};
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use clap::Parser;
 use log::info;
+use regex::Regex;
 
 use nextspeaker::{choose, Args};
 
@@ -15,16 +16,35 @@ fn non_blanks_nor_comments(path: &Path) -> Result<Vec<String>> {
         .collect())
 }
 
+fn maybe_trim_history(history: Vec<String>, do_it: bool) -> Result<Vec<String>> {
+    if !do_it {
+        return Ok(history);
+    }
+    let re = Regex::new(r"^\S+\s+(.*)$").unwrap();
+    Ok(history
+        .into_iter()
+        .map(|line| match re.captures(&line) {
+            None => bail!("cannot trim history from line: {}", &line),
+            Some(groups) => Ok(groups[1].to_string()),
+        })
+        .collect::<Result<Vec<_>>>()?)
+}
+
 fn main() -> Result<()> {
     simple_logger::init_with_env().context("initializing logger")?;
     let args = Args::parse();
 
     let participants = non_blanks_nor_comments(&args.participants)?;
-    let history = if let Some(hist_path) = &args.history {
-        non_blanks_nor_comments(hist_path)?
-    } else {
-        vec![]
-    };
+    let history = maybe_trim_history(
+        if let Some(hist_path) = &args.history {
+            non_blanks_nor_comments(hist_path)?
+        } else {
+            vec![]
+        },
+        args.history_trim,
+    )
+    .context("processing history")?;
+
     if participants.is_empty() {
         return Err(anyhow!("participant list is empty"));
     }

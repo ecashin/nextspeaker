@@ -10,11 +10,22 @@ pub const DEFAULT_HALFLIFE: f64 = 10.0;
 
 #[derive(Parser, Debug)]
 pub struct Args {
+    /// The list of participants, one per line
     pub participants: PathBuf,
+
+    /// The previous history of participation
     #[arg(long)]
     pub history: Option<PathBuf>,
+
+    /// Whether to trim an initial whitespace-delimited field from history
+    #[arg(long, action)]
+    pub history_trim: bool,
+
+    /// The time for participation to matter half as much
     #[arg(long, default_value_t = DEFAULT_HALFLIFE)]
     pub history_halflife: f64,
+
+    /// The number of simulations to run
     #[arg(long)]
     pub n_simulations: Option<usize>,
 }
@@ -292,6 +303,7 @@ mod test {
                 participants: PathBuf::from("dummy"),
                 history: Some(PathBuf::from("dummy-history")),
                 history_halflife: 10.0,
+                history_trim: false,
                 n_simulations: None,
             }
         }
